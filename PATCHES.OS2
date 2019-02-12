@@ -1656,7 +1656,7 @@ diff -cbBw sh-dos/sh6.c sh-os2/sh6.c
   }
 diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
 *** sh-dos/sh7.c	Thu Jul 05 19:50:32 1990
---- sh-os2/sh7.c	Sat Aug 04 14:58:16 1990
+--- sh-os2/sh7.c        Fri Aug 17 19:09:32 1990
 ***************
 *** 78,84 ****
   #include <sys/stat.h>
@@ -1736,124 +1736,154 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   static int		rdexp (char **, int, char *);
   
 ***************
-*** 463,578 ****
+*** 453,575 ****
+  }
+  
+  /*
+!  * Display the current version
+   */
+  
+! static int	dover (t)
+  C_Op		*t;
+  {
+-     Print_Version (1);
       return 0;
   }
   
 - static char	*swap_device[] = {"disk", "extend", "expand"};
 - 
-- /*
--  * Modify swapping information: swap options
--  */
-- 
-- static int	doswap (t)
-- register C_Op	*t;
-- {
--     register int	n = 1;
--     char		*cp;
-- 
-- /* Display current values ? */
-- 
--     if (t->words[1] == (char *)NULL)
--     {
-- 	if (Swap_Mode == SWAP_OFF)
-- 	    v1a_puts ("Swapping disabled");
-- 
-- 	else
-- 	{
-- 	    register int	j;
-- 
-- 	    v1_puts ("Swap devices: ");
-- 
-- 	    for (j = 0, n = 1; j < 3; ++j, n <<= 1)
-- 	    {
-- 		if (Swap_Mode & n)
-- 		{
-- 		    v1printf ("%s ", swap_device[j]);
-- 
-- 		    if (n == SWAP_EXTEND)
-- 			v1printf ("(0x%.6lx) ", SW_EMstart);
-- 		}
-- 	    }
-- 
-- 	    v1_putc (NL);
-- 	}
-- 
-- 	return 0;
--     }
-- 
-- /* Set up new values */
-- 
--     Swap_Mode = SWAP_OFF;
--     Clear_Swap_File ();
-- 
--     while ((cp = t->words[n++]) != (char *)NULL)
--     {
-- 	if (strcmp (cp, "off") == 0)
-- 	    Swap_Mode = SWAP_OFF;
-- 
-- 	else if (strcmp (cp, "on") == 0)
-- 	    Swap_Mode = SWAP_DISK | SWAP_EXPAND | SWAP_EXTEND;
-- 
-- /* Scan for valid arguments */
-- 
-- 	else
-- 	{
-- 	    register int	j, k;
-- 
-- 	    for (j = 0, k = 1; j < 3; ++j, k <<= 1)
-- 	    {
-- 		if (strcmp (cp, swap_device[j]) == 0)
-- 		{
-- 		    Swap_Mode |= k;
-- 
-- /* If extended memory, they can specify the start address as a hex number */
-- 
-- 		    if (k == SWAP_EXTEND)
-- 		    {
-- 			char	*sp;
-- 			long	start;
-- 
-- /* Check for not changed */
-- 
-- 			if ((sp = t->words[n]) == (char *)NULL)
-- 			    break;
-- 
-- /* Convert hex number */
-- 
-- 			start = strtol (sp, &sp, 16);
-- 
-- /* If not completely a hex number, ignore */
-- 
-- 			if (*sp)
-- 			    break;
-- 
-- /* Set used and saved new value */
-- 
-- 			SW_EMstart = start;
-- 			++n;
-- 
-- 			if ((SW_EMstart < 0x100000L) ||
-- 			    (SW_EMstart > 0xf00000L))
-- 			    SW_EMstart = 0x100000L;
-- 
-- 			v1printf ("Extend memory start set to 0x%.6lx\n",
-- 				  SW_EMstart);
-- 		    }
-- 
-- 		    break;
-- 		}
-- 	    }
-- 	}
--     }
-- 
--     return 0;
-- }
-- 
   /*
-   * Output the current path: pwd
+!  * Modify swapping information: swap options
    */
---- 467,472 ----
+  
+! static int	doswap (t)
+! register C_Op	*t;
+! {
+!     register int	n = 1;
+!     char		*cp;
+! 
+! /* Display current values ? */
+! 
+!     if (t->words[1] == (char *)NULL)
+!     {
+! 	if (Swap_Mode == SWAP_OFF)
+! 	    v1a_puts ("Swapping disabled");
+! 
+! 	else
+! 	{
+! 	    register int	j;
+! 
+! 	    v1_puts ("Swap devices: ");
+! 
+! 	    for (j = 0, n = 1; j < 3; ++j, n <<= 1)
+! 	    {
+! 		if (Swap_Mode & n)
+! 		{
+! 		    v1printf ("%s ", swap_device[j]);
+! 
+! 		    if (n == SWAP_EXTEND)
+! 			v1printf ("(0x%.6lx) ", SW_EMstart);
+! 		}
+! 	    }
+! 
+! 	    v1_putc (NL);
+! 	}
+! 
+! 	return 0;
+!     }
+! 
+! /* Set up new values */
+! 
+!     Swap_Mode = SWAP_OFF;
+!     Clear_Swap_File ();
+! 
+!     while ((cp = t->words[n++]) != (char *)NULL)
+      {
+! 	if (strcmp (cp, "off") == 0)
+! 	    Swap_Mode = SWAP_OFF;
+! 
+! 	else if (strcmp (cp, "on") == 0)
+! 	    Swap_Mode = SWAP_DISK | SWAP_EXPAND | SWAP_EXTEND;
+! 
+! /* Scan for valid arguments */
+! 
+! 	else
+! 	{
+! 	    register int	j, k;
+! 
+! 	    for (j = 0, k = 1; j < 3; ++j, k <<= 1)
+! 	    {
+! 		if (strcmp (cp, swap_device[j]) == 0)
+! 		{
+! 		    Swap_Mode |= k;
+! 
+! /* If extended memory, they can specify the start address as a hex number */
+! 
+! 		    if (k == SWAP_EXTEND)
+! 		    {
+! 			char	*sp;
+! 			long	start;
+! 
+! /* Check for not changed */
+! 
+! 			if ((sp = t->words[n]) == (char *)NULL)
+! 			    break;
+! 
+! /* Convert hex number */
+! 
+! 			start = strtol (sp, &sp, 16);
+! 
+! /* If not completely a hex number, ignore */
+! 
+! 			if (*sp)
+! 			    break;
+! 
+! /* Set used and saved new value */
+! 
+! 			SW_EMstart = start;
+! 			++n;
+! 
+! 			if ((SW_EMstart < 0x100000L) ||
+! 			    (SW_EMstart > 0xf00000L))
+! 			    SW_EMstart = 0x100000L;
+! 
+! 			v1printf ("Extend memory start set to 0x%.6lx\n",
+! 				  SW_EMstart);
+! 		    }
+! 
+! 		    break;
+! 		}
+! 	    }
+! 	}
+!     }
+! 
+      return 0;
+  }
+  
+--- 457,479 ----
+  }
+  
+  /*
+!  * Do nothing
+   */
+  
+! static int	donothing (t)
+  C_Op		*t;
+  {
+      return 0;
+  }
+  
+  /*
+!  * Display the current version
+   */
+  
+! static int	dover (t)
+! C_Op		*t;
+  {
+!     Print_Version (1);
+      return 0;
+  }
+  
 ***************
 *** 846,852 ****
   	case FILE_REGULAR:
@@ -1863,7 +1893,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   	    return stat (*test_alist, &s) == 0 && S_ISDIR(s.st_mode);
   
   	case FILE_NONZERO:
---- 740,746 ----
+--- 750,756 ----
   	case FILE_REGULAR:
   	    return stat (*test_alist, &s) == 0 && S_ISREG(s.st_mode);
   
@@ -1883,7 +1913,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
       return (ndrive == cdrive) ? 0 : 1;
   }
   
---- 842,852 ----
+--- 852,862 ----
   {
       unsigned int	cdrive;
       unsigned int	ndrive = tolower (**t->words) - 'a' + 1;
@@ -1897,7 +1927,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   
 ***************
 *** 969,974 ****
---- 864,870 ----
+--- 874,880 ----
       int			first = 0;
       unsigned int	dummy;
       unsigned int	cdrive;
@@ -1914,7 +1944,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   
   /* Scan for the directory.  If there is not a / or : at start, use the
    * CDPATH variable
---- 888,894 ----
+--- 898,904 ----
   
   /* Save the current drive */
   
@@ -1931,7 +1961,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   	    nd += 2;
   	}
   
---- 907,913 ----
+--- 917,923 ----
   
   	if (*(nd + 1) == ':')
   	{
@@ -1948,7 +1978,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
       Getcwd ();
   
       print_error ("%s: bad directory\n", p);
---- 934,940 ----
+--- 944,950 ----
   
   /* Restore our original drive and restore directory info */
   
@@ -1969,7 +1999,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   };
   
   static int	dotype (t)
---- 1652,1662 ----
+--- 1662,1672 ----
   #endif
   
   /*
@@ -1983,7 +2013,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   static int	dotype (t)
 ***************
 *** 1776,1781 ****
---- 1672,1678 ----
+--- 1682,1688 ----
       bool		found;			/* Found flag		*/
       char		*l_path;
       Fun_Ops		*fops;
@@ -1993,7 +2023,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   
 ***************
 *** 1789,1794 ****
---- 1686,1704 ----
+--- 1696,1714 ----
   
       while ((cp = t->words[n++]) != (char *)NULL)
       {
@@ -2024,7 +2054,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   		    print_error ("%s is %s\n", cp, l_path);
   		    found = TRUE;
   		}
---- 1751,1765 ----
+--- 1761,1775 ----
   
   		    else if ((stricmp (xp, ".exe") != 0) &&
   			     (stricmp (xp, ".com") != 0) &&
@@ -2041,8 +2071,13 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   		    found = TRUE;
   		}
 ***************
-*** 1875,1880 ****
---- 1791,1797 ----
+*** 1871,1880 ****
+--- 1797,1808 ----
+  	"exec",		doexec,
+  	"exit",		doexit,
+  	"export",	doexport,
++         "extproc",      donothing,
+  	"getopt",	dogetopt,
   #ifndef NO_HISTORY
   	"history",	dohistory,
   #endif
@@ -2059,10 +2094,10 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   	"test",		dotest,
   	"trap",		dotrap,
   	"type",		dotype,
---- 1799,1804 ----
+--- 1810,1815 ----
 ***************
 *** 1911,1916 ****
---- 1827,1861 ----
+--- 1838,1872 ----
       }
   
       return (int (*)())NULL;

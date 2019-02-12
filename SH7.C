@@ -457,6 +457,16 @@ char	**cp;					/* Pointer to character */
 }
 
 /*
+ * Do nothing
+ */
+
+static int	donothing (t)
+C_Op		*t;
+{
+    return 0;
+}
+
+/*
  * Display the current version
  */
 
@@ -1787,6 +1797,7 @@ static struct	builtin	builtin[] = {
 	"exec",		doexec,
 	"exit",		doexit,
 	"export",	doexport,
+        "extproc",      donothing,
 	"getopt",	dogetopt,
 #ifndef NO_HISTORY
 	"history",	dohistory,
