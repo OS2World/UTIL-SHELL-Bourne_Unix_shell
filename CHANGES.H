@@ -1,5 +1,5 @@
-extern int _CDECL	open	(char *, int, ...);
-extern int _CDECL	creat	(char *, int);
+/* extern int _CDECL	open	(char *, int, ...);
+extern int _CDECL	creat	(char *, int); */
 
 #define PATH_MAX	256		/* Maximum path length		*/
 #define NAME_MAX	64		/* Maximum file name length	*/
@@ -24,7 +24,7 @@ extern int _CDECL		pnmatch	(char *, char *, int);
 #define S_ISCHR(m)	((((m) & S_IFMT) == S_IFCHR))
 #define S_ISREG(m)	((((m) & S_IFMT) == S_IFREG))
 #define S_ISBLK(m)	((((m) & S_IFMT) == S_IFBLK))
-extern int _CDECL	chmod	(char *, int);
+/* extern int _CDECL	chmod	(char *, int); */
 extern int _CDECL	umask	(int);
 
 #ifndef _USHORT_T_DEFINED

@@ -1,15 +1,17 @@
-This is the OS/2 version of MS-SH 1.6.2. It was ported and tested using
-OS/2 1.2 but may run under OS/2 1.1 (not tested!).
+This is the OS/2 version of MS-SH 1.6.4. 
+It was ported and tested using OS/2 1.2 and 1.3.
 
+Note that the original distributed version 1.6.4 contains some
+minimal OS/2 support now (1.6.2, with which I begun, did not)
+but this port contains further enhancements, see below.
 
 Changes to DOS version:
 
-- background processes and report of their results by sh
+- real background processes (with &) and report of their results by sh
 - $! variable with pid of last created background process
 - "jobs" command and key
 - increased expanded command line length
 - real pipes, except for `command` substitiution
-- CMD.EXE internal commands recognized
 - "type" command extended
 - the exproc feature of OS/2 CMD.EXE is supported and ignored by sh;
   "extproc" is a do-nothing dummy internal command of sh
@@ -20,9 +22,6 @@ Changes to DOS version:
 
 - several defaults changed
 
-- the enhanced stdargv.c command line expander was modified but does not
-  work and is not needed inside sh, it may be useful only on invokation.
-
 
 When distributing only the diffs to the DOS version, please 
 include all of the following files:
@@ -32,10 +31,23 @@ patches.os2   (context diffs)
 
 changes.h     (new source files)
 dir.h
-dir_os2.c
+dir.c
 jobs.c
+isfat.c
 sh.cs
 sh.def
+
+
+Note: There is still a problem with sh when it runs in a PM VIO window.
+Some background processes are blocked on termination. This may be caused
+by PM's substitution of some VIO and KBD calls with own routines.
+When discovering this problem, simply run any command (executable, not
+internal) and the BG processes will continue to run. This does not
+occur in fullscreen sessions. I would appreciate any hint how to solve
+this (I have no idea, but in fact, did not yet tried too much to fix it,
+my spare time is limited).
+
+The manual is not up to date, it is for 1.6.2.
 
 
 The OS/2 port was made by:

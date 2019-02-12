@@ -1,20 +1,14 @@
-Only in sh-os2: newfiles.os2
-Only in sh-os2: patches.os2
-Only in sh-os2: changes.h
-Only in sh-os2: dir.h
-Only in sh-os2: dir_os2.c
-Only in sh-os2: jobs.c
-Only in sh-os2: sh.cs
-Only in sh-os2: sh.def
-diff -cbBw sh-dos/sh.h sh-os2/sh.h
-*** sh-dos/sh.h	Thu Jul 05 19:50:16 1990
---- sh-os2/sh.h	Sat Aug 04 17:41:46 1990
+Only in os2/SRC: dir.c
+Only in os2/SRC: dir.h
+Only in os2/SRC: isfat.c
+Only in os2/SRC: jobs.c
+Only in os2/SRC: sh.cs
+Only in os2/SRC: sh.def
+diff -cbBwr orig/SRC/sh.h os2/SRC/sh.h
+*** orig/SRC/sh.h	Wed Feb 20 21:24:34 1991
+--- os2/SRC/sh.h	Wed Feb 20 20:36:22 1991
 ***************
-*** 81,91 ****
-   */
-  
-  #define PATCHLEVEL	6
-! #define	LINE_MAX	1000	/* Command line length			*/
+*** 96,102 ****
   #define HISTORY_MAX	100	/* History array length			*/
   				/* Space for full file name		*/
   #define FFNAME_MAX	(PATH_MAX + NAME_MAX + 4)
@@ -22,11 +16,7 @@ diff -cbBw sh-dos/sh.h sh-os2/sh.h
   #define SSAVE_IO_SIZE	4	/* Save IO array malloc increment	*/
   
   #define	NPUSH		8	/* limit to input nesting		*/
---- 81,91 ----
-   */
-  
-  #define PATCHLEVEL	6
-! #define	LINE_MAX	1024	/* Command line length			*/
+--- 96,102 ----
   #define HISTORY_MAX	100	/* History array length			*/
   				/* Space for full file name		*/
   #define FFNAME_MAX	(PATH_MAX + NAME_MAX + 4)
@@ -35,8 +25,8 @@ diff -cbBw sh-dos/sh.h sh-os2/sh.h
   
   #define	NPUSH		8	/* limit to input nesting		*/
 ***************
-*** 98,103 ****
---- 98,105 ----
+*** 109,114 ****
+--- 109,116 ----
   #define SP		' '
   #define	NOT		'^'
   
@@ -46,7 +36,7 @@ diff -cbBw sh-dos/sh.h sh-os2/sh.h
    * a special case of the grave function
    */
 ***************
-*** 171,216 ****
+*** 190,235 ****
   
   #define	FEXEC		0x0001	/* execute without forking		*/
   
@@ -93,23 +83,15 @@ diff -cbBw sh-dos/sh.h sh-os2/sh.h
   
   /*
    * flags to control evaluation of words
---- 173,179 ----
+--- 192,198 ----
 ***************
-*** 569,574 ****
---- 532,538 ----
-  extern bool	eqname (char *, char *);
-  extern bool	any (char, char *);
-  extern int	(*inbuilt (char *))();
-+ extern char     *cmd_internal(char *s);
-  extern char	*path_append (char *, char *, char *);
-  extern void	unset (char *, bool);
-  extern int	S_open (bool, char *, int, ...);
-***************
-*** 621,641 ****
+*** 651,673 ****
   extern void	Clear_Extended_File (void);
   extern void	Print_Version (int);
   extern bool	anys (char *, char *);
 - extern void	Clear_Swap_File (void);
+  extern C_Op	*Copy_Function (C_Op *);
+  extern void	Convert_Backslashes (char *);
 - 
 - /*
 -  * Interrupt handling
@@ -127,13 +109,29 @@ diff -cbBw sh-dos/sh.h sh-os2/sh.h
 - extern int		SW_XMS_Gversion (void);
 - extern int		SW_XMS_Allocate (unsigned int);
 - extern int		SW_XMS_Free (int);
---- 585,587 ----
-diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
-*** sh-dos/sh1.c	Thu Jul 05 19:50:22 1990
---- sh-os2/sh1.c	Sat Aug 04 13:47:40 1990
+--- 614,618 ----
+diff -cbBwr orig/SRC/sh1.c os2/SRC/sh1.c
+*** orig/SRC/sh1.c	Wed Feb 20 21:24:52 1991
+--- os2/SRC/sh1.c	Wed Feb 20 21:05:12 1991
 ***************
-*** 87,92 ****
---- 87,97 ----
+*** 93,103 ****
+  #include <ctype.h>
+  #include <fcntl.h>
+  #include <limits.h>
+! #include <dirent.h>
+  #include <dos.h>
+  #include <time.h>
+  #include "sh.h"
+  
+  /*
+   * Structure of Malloced space to allow release of space nolonger required
+   * without having to know about it.
+--- 93,108 ----
+  #include <ctype.h>
+  #include <fcntl.h>
+  #include <limits.h>
+! #include <dir.h>
+  #include <dos.h>
   #include <time.h>
   #include "sh.h"
   
@@ -146,7 +144,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
    * Structure of Malloced space to allow release of space nolonger required
    * without having to know about it.
 ***************
-*** 109,116 ****
+*** 136,143 ****
   static char	*Path	   = "PATH";
   				/* Entry directory			*/
   static char	*Start_directory = (char *)NULL;
@@ -155,11 +153,11 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   #ifdef SIGQUIT
   static void	(*qflag)(int) = SIG_IGN;
   #endif
---- 114,119 ----
+--- 141,146 ----
 ***************
-*** 128,133 ****
---- 131,139 ----
-  static void	Convert_Backslashes (char *);
+*** 154,159 ****
+--- 157,165 ----
+  static void	Load_G_VL (void);
   static void	Load_profiles (void);
   static void	U2D_Path (void);
 + static void     dowaits(int);
@@ -169,8 +167,8 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   /*
    * The main program starts here
 ***************
-*** 307,312 ****
---- 313,320 ----
+*** 333,338 ****
+--- 339,346 ----
   	}
   
   	onecommand ();
@@ -180,8 +178,8 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   }
   
 ***************
-*** 460,465 ****
---- 468,524 ----
+*** 486,491 ****
+--- 494,550 ----
       }
   }
   
@@ -240,8 +238,8 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
    * Terminate current environment with an error
    */
 ***************
-*** 480,490 ****
---- 539,551 ----
+*** 506,516 ****
+--- 565,577 ----
       if (execflg)
   	fail ();
   
@@ -256,8 +254,8 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   /* Clean up */
   
 ***************
-*** 495,500 ****
---- 556,565 ----
+*** 521,526 ****
+--- 582,591 ----
   
       runtrap (0);
   
@@ -269,7 +267,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   
   #ifndef NO_HISTORY
 ***************
-*** 504,513 ****
+*** 530,539 ****
   
       closeall ();
   
@@ -280,16 +278,88 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   /* If this is a command only - restore the directory because DOS doesn't
    * and the user might expect it
    */
---- 569,574 ----
+--- 595,600 ----
 ***************
-*** 1439,1453 ****
+*** 552,558 ****
+   * Output warning message
+   */
+  
+! void	print_warn (fmt)
+  char	*fmt;
+  {
+      va_list	ap;
+--- 613,619 ----
+   * Output warning message
+   */
+  
+! void	print_warn (fmt, ...)
+  char	*fmt;
+  {
+      va_list	ap;
+***************
+*** 573,579 ****
+   * Output error message
+   */
+  
+! void	print_error (fmt)
+  char	*fmt;
+  {
+      va_list	ap;
+--- 634,640 ----
+   * Output error message
+   */
+  
+! void	print_error (fmt, ...)
+  char	*fmt;
+  {
+      va_list	ap;
+***************
+*** 719,729 ****
+      signal (SIGINT, onintr);
+      SW_intr = 1;
+  
+- /* Zap the swap file, just in case it got corrupted */
+- 
+-     S_close (SW_fp, TRUE);
+-     Clear_Swap_File ();
+- 
+  /* Are we talking to the user?  Yes - check in parser */
+  
+      if (talking)
+--- 780,785 ----
+***************
+*** 766,771 ****
+--- 822,828 ----
+  
+  char		*strsave (s, a)
+  register char	*s;
++ int a;
+  {
+      register char	*cp;
+  
+***************
+*** 788,798 ****
+      if (i == SIGINT)		/* Need this because swapper sets it	*/
+      {
+  	SW_intr = 0;
+- 
+- /* Zap the swap file, just in case it got corrupted */
+- 
+- 	S_close (SW_fp, TRUE);
+- 	Clear_Swap_File ();
+      }
+  
+      trapset = i;
+--- 845,850 ----
+***************
+*** 1569,1583 ****
   void	put_prompt (s)
   char	*s;
   {
 !     struct dosdate_t 	d_date;
 !     struct dostime_t	d_time;
-      int			i;
-      char		buf[PATH_MAX + 4];
+      int	i;
+      char buf[PATH_MAX + 4];
   
       last_prompt = s;		/* Save the Last prompt output		*/
   
@@ -298,7 +368,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   
       while (*s)
       {
---- 1500,1514 ----
+--- 1621,1635 ----
   void	put_prompt (s)
   char	*s;
   {
@@ -315,7 +385,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
       while (*s)
       {
 ***************
-*** 1475,1487 ****
+*** 1605,1617 ****
   			break;
   
   		    case 't':		    /* time	    */
@@ -329,7 +399,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   			break;
   
   		    case 'p':		    /* directory    */
---- 1536,1548 ----
+--- 1657,1669 ----
   			break;
   
   		    case 't':		    /* time	    */
@@ -344,7 +414,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   
   		    case 'p':		    /* directory    */
 ***************
-*** 1494,1500 ****
+*** 1624,1630 ****
   			break;
   
   		    case 'v':		    /* version	    */
@@ -352,7 +422,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   			break;
   		}
   
---- 1555,1561 ----
+--- 1676,1682 ----
   			break;
   
   		    case 'v':		    /* version	    */
@@ -361,7 +431,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   		}
   
 ***************
-*** 1552,1558 ****
+*** 1682,1688 ****
   {
       register char	*s, *s1;
       char		**ap;
@@ -369,7 +439,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
       bool		l_rflag = FALSE;
   
   /* Patch the ctype table as a cheat */
---- 1613,1619 ----
+--- 1734,1740 ----
   {
       register char	*s, *s1;
       char		**ap;
@@ -378,7 +448,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   
   /* Patch the ctype table as a cheat */
 ***************
-*** 1563,1571 ****
+*** 1693,1701 ****
    * address
    */
   
@@ -388,10 +458,10 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   /* Load the environment into our structures */
   
       if ((ap = environ) != (char **)NULL)
---- 1624,1629 ----
+--- 1745,1750 ----
 ***************
-*** 1642,1647 ****
---- 1700,1708 ----
+*** 1772,1777 ****
+--- 1821,1829 ----
   /* Set up home directory */
   
       if ((lset = lookup (home, TRUE))->value == null)
@@ -402,7 +472,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   
       s_vstatus (lset, EXPORT);
 ***************
-*** 1663,1669 ****
+*** 1793,1799 ****
   	setval (ifs, " \t\n");
   
       if (ps1->value == null)
@@ -410,7 +480,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   
       if (ps2->value == null)
   	setval (ps2, "> ");
---- 1724,1730 ----
+--- 1845,1851 ----
   	setval (ifs, " \t\n");
   
       if (ps1->value == null)
@@ -419,7 +489,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
       if (ps2->value == null)
   	setval (ps2, "> ");
 ***************
-*** 1765,1772 ****
+*** 1895,1902 ****
   static void	Pre_Process_Argv (argv)
   char		**argv;
   {
@@ -428,7 +498,7 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   
   /* Check for these options */
   
---- 1826,1836 ----
+--- 1947,1957 ----
   static void	Pre_Process_Argv (argv)
   char		**argv;
   {
@@ -441,8 +511,8 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   /* Check for these options */
   
 ***************
-*** 1834,1839 ****
---- 1898,1904 ----
+*** 1964,1969 ****
+--- 2019,2025 ----
   {
       char	*name;
       int		f;
@@ -451,8 +521,8 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   /* Set up home profile */
   
 ***************
-*** 1852,1857 ****
---- 1917,1936 ----
+*** 1982,1987 ****
+--- 2038,2057 ----
       {
   	PUSHIO (afile, remap (f), filechar);
       }
@@ -473,24 +543,11 @@ diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
   }
   
   /*
-diff -cbBw sh-dos/sh2.c sh-os2/sh2.c
-*** sh-dos/sh2.c	Mon May 21 20:12:06 1990
---- sh-os2/sh2.c	Thu Jul 05 19:55:04 1990
+diff -cbBwr orig/SRC/sh10.c os2/SRC/sh10.c
+*** orig/SRC/sh10.c	Wed Feb 20 21:25:34 1991
+--- os2/SRC/sh10.c	Wed Feb 20 20:22:46 1991
 ***************
-*** 36,41 ****
---- 36,42 ----
-  
-  #include <sys/types.h>
-  #include <stddef.h>
-+ #include <stdio.h>
-  #include <signal.h>
-  #include <errno.h>
-  #include <setjmp.h>
-diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
-*** sh-dos/sh3.c	Thu Jul 05 19:50:26 1990
---- sh-os2/sh3.c	Sat Aug 04 18:29:58 1990
-***************
-*** 97,103 ****
+*** 37,43 ****
   #include <sys/stat.h>
   #include <stdio.h>
   #include <process.h>
@@ -498,9 +555,79 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   #include <signal.h>
   #include <errno.h>
   #include <setjmp.h>
---- 97,102 ----
+--- 37,42 ----
 ***************
-*** 107,117 ****
+*** 47,53 ****
+  #include <stdlib.h>
+  #include <fcntl.h>
+  #include <limits.h>
+! #include <dirent.h>
+  #include "sh.h"
+  
+  
+--- 46,52 ----
+  #include <stdlib.h>
+  #include <fcntl.h>
+  #include <limits.h>
+! #include <dir.h>
+  #include "sh.h"
+  
+  
+diff -cbBwr orig/SRC/sh2.c os2/SRC/sh2.c
+*** orig/SRC/sh2.c	Wed Feb 20 21:25:20 1991
+--- os2/SRC/sh2.c	Wed Feb 20 20:22:32 1991
+***************
+*** 42,47 ****
+--- 42,48 ----
+  
+  #include <sys/types.h>
+  #include <stddef.h>
++ #include <stdio.h>
+  #include <signal.h>
+  #include <errno.h>
+  #include <setjmp.h>
+***************
+*** 49,55 ****
+  #include <ctype.h>
+  #include <unistd.h>
+  #include <limits.h>
+! #include <dirent.h>
+  #include "sh.h"
+  
+  /*
+--- 50,56 ----
+  #include <ctype.h>
+  #include <unistd.h>
+  #include <limits.h>
+! #include <dir.h>
+  #include "sh.h"
+  
+  /*
+***************
+*** 557,562 ****
+--- 558,564 ----
+  }
+  
+  static C_Op	*block (type, t1, t2, wp)
++ int             type;
+  C_Op		*t1, *t2;
+  char		**wp;
+  {
+diff -cbBwr orig/SRC/sh3.c os2/SRC/sh3.c
+*** orig/SRC/sh3.c	Wed Feb 20 21:25:00 1991
+--- os2/SRC/sh3.c	Wed Feb 20 20:58:50 1991
+***************
+*** 115,121 ****
+  #include <sys/stat.h>
+  #include <stdio.h>
+  #include <process.h>
+- #include <dos.h>
+  #include <signal.h>
+  #include <errno.h>
+  #include <setjmp.h>
+--- 115,120 ----
+***************
+*** 125,135 ****
   #include <stdlib.h>
   #include <fcntl.h>
   #include <limits.h>
@@ -512,7 +639,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   /* static Function and string declarations */
   
   static int	forkexec (C_Op *, int, int, int, char **);
---- 106,120 ----
+--- 124,138 ----
   #include <stdlib.h>
   #include <fcntl.h>
   #include <limits.h>
@@ -529,7 +656,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   static int	forkexec (C_Op *, int, int, int, char **);
 ***************
-*** 122,133 ****
+*** 140,151 ****
   static int	rexecve (char *, char **, char **, bool);
   static int	Execute_program (char *, char **, char **, bool);
   static int	S_spawnve (char *, char **, char **);
@@ -542,36 +669,38 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   static int	build_command_line (char *, char **, char **);
   static int	setstatus (int);
   static bool	Check_for_bat_file (char *);
---- 125,130 ----
+--- 143,148 ----
 ***************
-*** 134,145 ****
+*** 152,164 ****
   static size_t	white_space_len (char *, bool *);
   static char	*Gen_Full_Path_Name (char *);
   
   static char	*AE2big = "arg/env list too big";
 - static char	*EMS_emsg = "Warning: EMS Error (%x)\n";
 - static char	*XMS_emsg = "Warning: XMS Error (%x)\n";
+  static char	*EF_msg = "%s: %s\n";
   			/* Extended Command line processing file name	*/
   static char		*Extend_file = (char *)NULL;
 - static char		*Swap_File = (char *)NULL;	/* Swap file	*/
   
   /*
    * execute tree recursively
---- 131,141 ----
+--- 149,160 ----
   static size_t	white_space_len (char *, bool *);
   static char	*Gen_Full_Path_Name (char *);
   
 + static int      spawnmode = P_WAIT;
 + 
   static char	*AE2big = "arg/env list too big";
+  static char	*EF_msg = "%s: %s\n";
   			/* Extended Command line processing file name	*/
   static char		*Extend_file = (char *)NULL;
   
   /*
    * execute tree recursively
 ***************
-*** 163,168 ****
---- 159,165 ----
+*** 182,187 ****
+--- 178,184 ----
       int			Local_depth;		/* Save local values	*/
       int			Local_areanum;
       int			rv = 0;
@@ -580,25 +709,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   /* End of tree ? */
   
 ***************
-*** 213,219 ****
-  		Break_List  = (Break_C *)NULL;
-  		bc.nextlev  = SShell_List;
-  		SShell_List = &bc;
-! 		rv = forkexec (t, pin, pout, act, wp);
-  	    }
-  
-  /* Restore the original environment */
---- 210,217 ----
-  		Break_List  = (Break_C *)NULL;
-  		bc.nextlev  = SShell_List;
-  		SShell_List = &bc;
-! 		/* rv = forkexec (t, pin, pout, act, wp); wrong! */
-! 		rv = execute (t->left, pin, pout, act);
-  	    }
-  
-  /* Restore the original environment */
-***************
-*** 234,251 ****
+*** 253,270 ****
   	    break;
   
   	case TPIPE:			/* Pipe processing		*/
@@ -617,7 +728,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   	    break;
   
   	case TLIST:			/* Entries in a for statement	*/
---- 232,280 ----
+--- 250,298 ----
   	    break;
   
   	case TPIPE:			/* Pipe processing		*/
@@ -668,7 +779,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   	case TLIST:			/* Entries in a for statement	*/
 ***************
-*** 253,262 ****
+*** 272,281 ****
   	    rv = execute (t->right, pin, pout, 0);
   	    break;
   
@@ -679,7 +790,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   	    break;
   
   	case TOR:			/* || and &&			*/
---- 282,299 ----
+--- 300,317 ----
   	    rv = execute (t->right, pin, pout, 0);
   	    break;
   
@@ -699,7 +810,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   	case TOR:			/* || and &&			*/
 ***************
-*** 439,445 ****
+*** 458,464 ****
   {
       unsigned int	dummy;
   
@@ -707,7 +818,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
       if (chdir (&path[2]) != 0)
       {
---- 476,482 ----
+--- 494,500 ----
   {
       unsigned int	dummy;
   
@@ -716,76 +827,61 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
       if (chdir (&path[2]) != 0)
       {
 ***************
-*** 469,474 ****
---- 506,512 ----
-      char	**owp = wp;
-      bool	spawn = FALSE;
-      Fun_Ops	*fop;
-+     char        *cmdcom = NULL;
-  
-      if (t->type == TCOM)
-      {
-***************
-*** 494,501 ****
+*** 523,529 ****
   
   /* Check for built in commands */
   
 ! 	else if (cp != (char *)NULL)
-! 	    shcom = inbuilt (cp);
+  	    shcom = inbuilt (cp, &builtin);
       }
   
-  /* Unix fork simulation? */
---- 532,541 ----
+--- 559,566 ----
   
   /* Check for built in commands */
   
 ! 	else
 !           if (cp != (char *)NULL)
-! 	    if ( (shcom = inbuilt (cp)) == NULL )
-!               cmdcom = cmd_internal(cp);
+  	    shcom = inbuilt (cp, &builtin);
       }
   
-  /* Unix fork simulation? */
 ***************
-*** 634,639 ****
---- 674,682 ----
+*** 531,536 ****
+--- 568,574 ----
   
-  /* Ok - execute the program */
-  
-+     if (cmdcom)
-+       return restore_std (rexecve (NULL, wp, makenv (), spawn), TRUE);
-+     else
-        return restore_std (rexecve (wp[0], wp, makenv (), spawn), TRUE);
-  }
+      t->words = wp;
+      if ((act & FEXEC) == 0)
++     if (shcom == NULL && (act & FEXEC) == 0)
+      {
+  	spawn = TRUE;
   
 ***************
-*** 860,867 ****
+*** 911,918 ****
       int			nargc = 0;		/* # script args	*/
       char		*p_name;		/* Program name		*/
       int			i;
--     union REGS		r;
+!     union REGS		r;
   
   /* If the environment is null - It is too big - error */
   
       if (envp == (char **)NULL)
---- 903,917 ----
+--- 949,963 ----
       int			nargc = 0;		/* # script args	*/
       char		*p_name;		/* Program name		*/
       int			i;
+! 
+! /* Count the number of arguments to the program in case of shell script or
+!  * bat file
+!  */
+! 
+!     while (v[argc++] != (char *)NULL);
   
-+ /* Count the number of arguments to the program in case of shell script or
-+  * bat file
-+  */
-+ 
-+     while (v[argc++] != (char *)NULL);
-+ 
 +     ++argc;				/* Including the null		*/
 + 
   /* If the environment is null - It is too big - error */
   
       if (envp == (char **)NULL)
 ***************
-*** 870,886 ****
+*** 921,937 ****
       else if ((p_name = getcell (FFNAME_MAX)) == (char *)NULL)
   	em = strerror (ENOMEM);
   
@@ -795,15 +891,15 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
 ! /* Count the number of arguments to the program in case of shell script or
 !  * bat file
 !  */
-! 
-! 	while (v[argc++] != (char *)NULL);
   
+! 	while (v[argc++] != (char *)NULL);
+! 
 ! 	++argc;				/* Including the null		*/
   
   /* Start off on the search path for the executable file */
   
   	sp = (any ('/', c) || (*(c + 1) == ':')) ? null : path->value;
---- 920,945 ----
+--- 966,991 ----
       else if ((p_name = getcell (FFNAME_MAX)) == (char *)NULL)
   	em = strerror (ENOMEM);
   
@@ -831,7 +927,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   	sp = (any ('/', c) || (*(c + 1) == ':')) ? null : path->value;
 ***************
-*** 940,953 ****
+*** 992,1005 ****
   		    {
   			new_argv[0] = lookup ("COMSPEC", FALSE)->value;
   			new_argv[1] = "/c";
@@ -841,14 +937,14 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
 - 			r.x.ax = 0x3700;
 - 			intdos (&r, &r);
 - 
-- 			if (r.h.al == 0)
+- 			if ((r.h.al == 0) && (_osmajor < 4))
 - 			    *new_argv[1] = (char)(r.h.dl);
   		    }
   
   /* Stick in the pre-fix arguments */
---- 999,1004 ----
+--- 1046,1051 ----
 ***************
-*** 1044,1052 ****
+*** 1102,1110 ****
   	++cp;
   
       if ((cp = strrchr (cp, '.')) == (char *)NULL)
@@ -858,7 +954,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
       {
   	DELETE (local_path);
   	return FALSE;
---- 1095,1103 ----
+--- 1148,1156 ----
   	++cp;
   
       if ((cp = strrchr (cp, '.')) == (char *)NULL)
@@ -869,7 +965,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   	DELETE (local_path);
   	return FALSE;
 ***************
-*** 1157,1167 ****
+*** 1215,1225 ****
   char		**parms;
   char		**envp;
   {
@@ -881,7 +977,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   /* Check to see if the file exists */
   
---- 1208,1215 ----
+--- 1261,1268 ----
   char		**parms;
   char		**envp;
   {
@@ -891,7 +987,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   /* Check to see if the file exists */
   
 ***************
-*** 1198,1578 ****
+*** 1256,1636 ****
       else if (access (path_line, F_OK) != 0)
   	return -1;
   
@@ -1159,7 +1255,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
 ! 
 !     if (memcmp ("EMMXXXX0", sp, 8) != 0)
 ! 	return EMS_error ("Warning: EMS not available\n", 0);
-! 
+  
 !     or.h.ah = 0x40;			/* Check status			*/
 !     int86 (0x67, &or, &or);
 ! 
@@ -1267,13 +1363,13 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
 !     or.h.ah = 0x45;
 !     or.x.dx = SW_fp;
 !     int86 (0x67, &or, &or);
-  
+! 
 !     SW_fp = -1;
 !     return (res) ? res : or.h.ah;
   }
   
   /* Set up command line.  If the EXTENDED_LINE variable is set, we create
---- 1246,1254 ----
+--- 1299,1307 ----
       else if (access (path_line, F_OK) != 0)
   	return -1;
   
@@ -1284,8 +1380,8 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   /* Set up command line.  If the EXTENDED_LINE variable is set, we create
 ***************
-*** 1595,1600 ****
---- 1271,1278 ----
+*** 1653,1658 ****
+--- 1324,1331 ----
       bool		found;
       char		*ep;
       char		*new_args[3];
@@ -1295,25 +1391,25 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   /* Translate process name to MSDOS format */
   
 ***************
-*** 1686,1692 ****
+*** 1746,1752 ****
   
   /* Correctly terminate cmd_line in no swap mode */
   
 - 	    if (Swap_Mode != SWAP_OFF)
-  		cmd_line[cmd_line[0] + 2] = '\r';
+  	    cmd_line[cmd_line[0] + 2] = '\r';
   
   /* If the name in the file is in upper case - use \ for separators */
---- 1364,1369 ----
+--- 1419,1424 ----
 ***************
-*** 1696,1711 ****
+*** 1756,1771 ****
   
   /* OK we are ready to execute */
   
 - 	    if (Swap_Mode == SWAP_OFF)
 - 	    {
-  		new_args[0] = *argv;
-  		new_args[1] = &cmd_line[1];
-  		new_args[2] = (char *)NULL;
+  	    new_args[0] = *argv;
+  	    new_args[1] = &cmd_line[1];
+  	    new_args[2] = (char *)NULL;
 - 		return spawnve (P_WAIT, path, new_args, envp);
 - 	    }
   
@@ -1322,7 +1418,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   	}
       }
   
---- 1373,1386 ----
+--- 1428,1441 ----
   
   /* OK we are ready to execute */
   
@@ -1338,7 +1434,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
       }
   
 ***************
-*** 1745,1753 ****
+*** 1805,1813 ****
   
       cmd_line[0] = (char)res;
   
@@ -1348,7 +1444,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   }
   
   /* Check string for white space */
---- 1420,1431 ----
+--- 1475,1486 ----
   
       cmd_line[0] = (char)res;
   
@@ -1362,7 +1458,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   /* Check string for white space */
 ***************
-*** 1784,1802 ****
+*** 1844,1862 ****
       Extend_file = (char *)NULL;
   }
   
@@ -1382,9 +1478,9 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   /* Convert the executable path to the full path name */
   
   static char	*Gen_Full_Path_Name (path)
---- 1462,1467 ----
+--- 1517,1522 ----
 ***************
-*** 1830,1838 ****
+*** 1890,1898 ****
   
   /* Switch drives and get the path of the other drive */
   
@@ -1394,7 +1490,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   	 }
       }
   
---- 1495,1503 ----
+--- 1550,1558 ----
   
   /* Switch drives and get the path of the other drive */
   
@@ -1405,7 +1501,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
       }
   
 ***************
-*** 1861,1867 ****
+*** 1921,1927 ****
   /* Change to the directory containing the executable */
   
   	if (*(path + 1) == ':')
@@ -1413,7 +1509,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   /* Save the current directory on this drive */
   
---- 1526,1532 ----
+--- 1581,1587 ----
   /* Change to the directory containing the executable */
   
   	if (*(path + 1) == ':')
@@ -1422,7 +1518,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   /* Save the current directory on this drive */
   
 ***************
-*** 1882,1888 ****
+*** 1942,1948 ****
   
   /* Restore our original directory */
   
@@ -1430,7 +1526,7 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   	if (chdir (cpath) < 0)
   	    return (char *)NULL;
---- 1547,1553 ----
+--- 1602,1608 ----
   
   /* Restore our original directory */
   
@@ -1438,11 +1534,11 @@ diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
   
   	if (chdir (cpath) < 0)
   	    return (char *)NULL;
-diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
-*** sh-dos/sh4.c	Thu Jul 05 19:50:28 1990
---- sh-os2/sh4.c	Sat Aug 04 16:22:18 1990
+diff -cbBwr orig/SRC/sh4.c os2/SRC/sh4.c
+*** orig/SRC/sh4.c	Wed Feb 20 21:25:06 1991
+--- os2/SRC/sh4.c	Wed Feb 20 20:47:30 1991
 ***************
-*** 45,59 ****
+*** 59,73 ****
   #include <signal.h>
   #include <errno.h>
   #include <setjmp.h>
@@ -1458,7 +1554,7 @@ diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
   /*
    * ${}, `command`, blank interpretation, quoting and file name expansion
    */
---- 45,62 ----
+--- 59,76 ----
   #include <signal.h>
   #include <errno.h>
   #include <setjmp.h>
@@ -1478,41 +1574,95 @@ diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
    * ${}, `command`, blank interpretation, quoting and file name expansion
    */
 ***************
-*** 853,859 ****
+*** 100,105 ****
+--- 103,109 ----
+  
+  char		**eval(ap, f)
+  register char	**ap;
++ int             f;
+  {
+      Word_B	*wb = (Word_B *)NULL;
+      char	**wp = (char **)NULL;
+***************
+*** 269,274 ****
+--- 273,279 ----
+   */
+  
+  static char	*blank(f)
++ int             f;
+  {
+      register int	c, c1;
+      register char	*sp = e.linep;
+***************
+*** 869,875 ****
+  	if (any (*pp, spcl))
+  	    i++;
+  
+! 	else if (!any (*pp & ~QUOTE, spcl))
+  	    *pp &= ~QUOTE;
+      }
+  
+--- 874,880 ----
+  	if (any (*pp, spcl))
+  	    i++;
+  
+! 	else if (!any ((char)(*pp & ~QUOTE), spcl))
+  	    *pp &= ~QUOTE;
+      }
+  
+***************
+*** 945,951 ****
+  {
       register char	*np, *cp;
       char		*name, *gp, *dp;
-      DIR			*dn;
 !     struct dirent	*d_ce;
       char		dname[NAME_MAX + 1];
       struct stat		dbuf;
   
---- 856,862 ----
+--- 950,956 ----
+  {
       register char	*np, *cp;
       char		*name, *gp, *dp;
-      DIR			*dn;
 !     struct direct	*d_ce;
       char		dname[NAME_MAX + 1];
       struct stat		dbuf;
   
 ***************
-*** 898,904 ****
+*** 990,996 ****
   
   /* Scan for matches */
   
-!     while ((d_ce = readdir (dn)) != (struct dirent *)NULL)
+!     while ((d_ce = readdir (e.cdir)) != (struct dirent *)NULL)
       {
-  	if ((*(strcpy (dname, d_ce->d_name)) == '.') && (*gp != '.'))
-  	    continue;
---- 901,907 ----
+   	if ((*(strncpy (dname, d_ce->d_name, NAME_MAX)) == '.') && (*gp != '.'))
+    	    continue;
+--- 995,1001 ----
   
   /* Scan for matches */
   
-!     while ((d_ce = readdir (dn)) != (struct direct *)NULL)
+!     while ((d_ce = readdir (e.cdir)) != (struct direct *)NULL)
       {
-  	if ((*(strcpy (dname, d_ce->d_name)) == '.') && (*gp != '.'))
-  	    continue;
+   	if ((*(strncpy (dname, d_ce->d_name, NAME_MAX)) == '.') && (*gp != '.'))
+    	    continue;
 ***************
-*** 1105,1153 ****
+*** 1030,1036 ****
+      }
+  
+      closedir (e.cdir);
+!     e.cdir = (DIR *)NULL;
+      DELETE (dp);
+      DELETE (gp);
+  }
+--- 1035,1041 ----
+      }
+  
+      closedir (e.cdir);
+!     e.cdir = NULL;
+      DELETE (dp);
+      DELETE (gp);
+  }
+***************
+*** 1199,1248 ****
   char		*start;
   {
       unsigned int	c_drive;	/* Current drive		*/
@@ -1535,7 +1685,7 @@ diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
 - 	*multi = 0;
   
 ! 	for (s_drive = 1; s_drive <= m_drive; ++s_drive)
-  	{
+  	  {
 ! 	    _dos_setdrive (s_drive, &x_drive);
 ! 	    _dos_getdrive (&y_drive);
 ! 	    _dos_setdrive (c_drive, &x_drive);
@@ -1549,12 +1699,13 @@ diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
 ! 
 ! 	    *t_drive = (char)(s_drive + 'a' - 1);
   
-! 	    if ((y_drive == s_drive) && gmatch (t_drive, pattern, TRUE))
-  	    {
-  		*new_pattern = *t_drive;
+! 	    if ((y_drive == s_drive) &&
+! 		 gmatch (t_drive, pattern, TRUE, (char **)NULL, GM_ALL))
+  	      {
+  	  	*new_pattern = *t_drive;
 ! 		globname (new_pattern, &new_pattern[2]);
-  	    }
-  	}
+  	      }
+  	  }
   
   /* Restore and delete space */
   
@@ -1562,7 +1713,7 @@ diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
   	DELETE (new_pattern);
       }
   
---- 1108,1146 ----
+--- 1204,1242 ----
   char		*start;
   {
       unsigned int	c_drive;	/* Current drive		*/
@@ -1587,7 +1738,7 @@ diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
 ! 	      *t_drive = (char)(cnt + 'a' - 1);
 !               *multi = 0;
   
-! 	      if (gmatch (t_drive, pattern, TRUE))
+! 	      if (gmatch (t_drive, pattern, TRUE, (char **)NULL, GM_ALL))
   	      {
   	  	*new_pattern = *t_drive;
 !                 *multi = ':';
@@ -1602,24 +1753,72 @@ diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
   	DELETE (new_pattern);
       }
   
-diff -cbBw sh-dos/sh6.c sh-os2/sh6.c
-*** sh-dos/sh6.c	Thu Jul 05 19:50:30 1990
---- sh-os2/sh6.c	Sat Aug 04 13:45:18 1990
+diff -cbBwr orig/SRC/sh5.c os2/SRC/sh5.c
+*** orig/SRC/sh5.c	Wed Feb 20 21:21:06 1991
+--- os2/SRC/sh5.c	Fri Sep 07 18:46:04 1990
 ***************
-*** 69,76 ****
+*** 61,67 ****
+  #include <fcntl.h>
+  #include <io.h>
+  #include <limits.h>
+! #include <dirent.h>
+  #include <unistd.h>
+  #include "sh.h"
+  
+--- 61,67 ----
+  #include <fcntl.h>
+  #include <io.h>
+  #include <limits.h>
+! #include <dir.h>
+  #include <unistd.h>
+  #include "sh.h"
+  
+***************
+*** 875,881 ****
+   * Otherwise, write x
+   */
+  
+! 		if ((c & QUOTE) && !any ((c & ~QUOTE), "$`\\"))
+  		    Add_buffer ('\\', bp);
+  
+  		Add_buffer ((char)(c & (~QUOTE)), bp);
+--- 875,881 ----
+   * Otherwise, write x
+   */
+  
+! 		if ((c & QUOTE) && !any ((char)(c & ~QUOTE), "$`\\"))
+  		    Add_buffer ('\\', bp);
+  
+  		Add_buffer ((char)(c & (~QUOTE)), bp);
+diff -cbBwr orig/SRC/sh6.c os2/SRC/sh6.c
+*** orig/SRC/sh6.c	Wed Feb 20 21:25:16 1991
+--- os2/SRC/sh6.c	Wed Feb 20 20:48:00 1991
+***************
+*** 71,83 ****
+  #include <setjmp.h>
+  #include <stdlib.h>
+  #include <limits.h>
+! #include <dirent.h>
+  #include <unistd.h>
   #include <string.h>
   #include "sh.h"
   
-! static char	*Copy_Right1 = "MS-DOS SH Version 1.6.2 - %s (DOS %d.%d)\n";
+! static char	*Copy_Right1 = "MS-DOS SH Version 1.6.4 - %s (DOS %d.%d)\n";
   static char	*Copy_Right2 = "Copyright (c) Data Logic Ltd and Charles Forsyth 1990\n";
   char		**dolv;		/* Parameter array			*/
   int		dolc;		/* Number of entries in parameter array	*/
   int		exstat;		/* Exit status				*/
---- 69,78 ----
+--- 71,86 ----
+  #include <setjmp.h>
+  #include <stdlib.h>
+  #include <limits.h>
+! #include <proto.h>
+! #include <dir.h>
+  #include <unistd.h>
   #include <string.h>
   #include "sh.h"
   
-! static char	*Copy_Right1 = "\nSH Version 1.6.2 - %s (OS/2 %d.%02d)\n";
+! static char	*Copy_Right1 = "\nSH Version 1.6.4 - %s (OS/2 %d.%02d)\n";
   static char	*Copy_Right2 = "Copyright (c) Data Logic Ltd and Charles Forsyth 1990\n";
 + static char	*Copy_Right3 = "Ported to OS/2 by Kai Uwe Rommel 1990\n\n";
 + 
@@ -1627,7 +1826,7 @@ diff -cbBw sh-dos/sh6.c sh-os2/sh6.c
   int		dolc;		/* Number of entries in parameter array	*/
   int		exstat;		/* Exit status				*/
 ***************
-*** 83,89 ****
+*** 90,96 ****
   int		*failpt;	/* Current fail point jump address	*/
   int		*errpt;		/* Current error point jump address	*/
   				/* Swap mode				*/
@@ -1635,9 +1834,9 @@ diff -cbBw sh-dos/sh6.c sh-os2/sh6.c
   Break_C		*Break_List;	/* Break list for FOR/WHILE		*/
   Break_C		*Return_List;	/* Return list for RETURN		*/
   Break_C		*SShell_List;	/* SubShell list for EXIT		*/
---- 85,90 ----
+--- 93,98 ----
 ***************
-*** 161,167 ****
+*** 169,175 ****
   {
       char	buf[100];
   
@@ -1645,7 +1844,7 @@ diff -cbBw sh-dos/sh6.c sh-os2/sh6.c
       write (fp, buf, strlen (buf));
       write (fp, Copy_Right2, strlen (Copy_Right2));
   }
---- 162,169 ----
+--- 171,178 ----
   {
       char	buf[100];
   
@@ -1654,11 +1853,11 @@ diff -cbBw sh-dos/sh6.c sh-os2/sh6.c
       write (fp, Copy_Right2, strlen (Copy_Right2));
 +     write (fp, Copy_Right3, strlen (Copy_Right3));
   }
-diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
-*** sh-dos/sh7.c	Thu Jul 05 19:50:32 1990
---- sh-os2/sh7.c        Fri Aug 17 19:09:32 1990
+diff -cbBwr orig/SRC/sh7.c os2/SRC/sh7.c
+*** orig/SRC/sh7.c	Wed Feb 20 21:25:28 1991
+--- os2/SRC/sh7.c	Wed Feb 20 21:30:10 1991
 ***************
-*** 78,84 ****
+*** 88,94 ****
   #include <sys/stat.h>
   #include <stdio.h>
   #include <process.h>
@@ -1666,10 +1865,24 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   #include <signal.h>
   #include <errno.h>
   #include <setjmp.h>
---- 78,83 ----
+--- 88,93 ----
 ***************
-*** 91,96 ****
---- 90,99 ----
+*** 98,107 ****
+  #include <stdlib.h>
+  #include <fcntl.h>
+  #include <limits.h>
+! #include <dirent.h>
+  #include <stdarg.h>
+  #include "sh.h"
+  
+  #define	SECS		60L
+  #define	MINS		3600L
+  #define IS_OCTAL(a)	(((a) >= '0') && ((a) <= '7'))
+--- 97,110 ----
+  #include <stdlib.h>
+  #include <fcntl.h>
+  #include <limits.h>
+! #include <dir.h>
   #include <stdarg.h>
   #include "sh.h"
   
@@ -1681,7 +1894,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   #define	MINS		3600L
   #define IS_OCTAL(a)	(((a) >= '0') && ((a) <= '7'))
 ***************
-*** 101,107 ****
+*** 112,118 ****
   #define FILE_READABLE	1
   #define FILE_WRITABLE	2
   #define FILE_REGULAR	3
@@ -1689,7 +1902,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   #define FILE_NONZERO	5
   #define FILE_TERMINAL	6
   #define STRING_ZERO	7
---- 104,110 ----
+--- 115,121 ----
   #define FILE_READABLE	1
   #define FILE_WRITABLE	2
   #define FILE_REGULAR	3
@@ -1698,7 +1911,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   #define FILE_TERMINAL	6
   #define STRING_ZERO	7
 ***************
-*** 143,149 ****
+*** 154,160 ****
       {"-w",	FILE_WRITABLE,		UNARY_OP},
       {"-x",	FILE_EXECUTABLE,	UNARY_OP},
       {"-f",	FILE_REGULAR,		UNARY_OP},
@@ -1706,7 +1919,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
       {"-s",	FILE_NONZERO,		UNARY_OP},
       {"-t",	FILE_TERMINAL,		UNARY_OP},
       {"-z",	STRING_ZERO,		UNARY_OP},
---- 146,152 ----
+--- 157,163 ----
       {"-w",	FILE_WRITABLE,		UNARY_OP},
       {"-x",	FILE_EXECUTABLE,	UNARY_OP},
       {"-f",	FILE_REGULAR,		UNARY_OP},
@@ -1715,7 +1928,24 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
       {"-t",	FILE_TERMINAL,		UNARY_OP},
       {"-z",	STRING_ZERO,		UNARY_OP},
 ***************
-*** 197,203 ****
+*** 190,196 ****
+  #ifdef S_IFIFO
+      {"-p",	FILE_FIFO,		UNARY_OP},
+  #endif
+!     {(char *)NULL,	NULL,		NULL}
+  };
+  
+  static int		expr (int);
+--- 193,199 ----
+  #ifdef S_IFIFO
+      {"-p",	FILE_FIFO,		UNARY_OP},
+  #endif
+!     {(char *)NULL,	0,		0}
+  };
+  
+  static int		expr (int);
+***************
+*** 208,214 ****
   static int		doecho (C_Op *);
   static int		dogetopt (C_Op *);
   static int		dopwd (C_Op *);
@@ -1723,20 +1953,21 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   static int		dounset (C_Op *);
   static int		dotype (C_Op *);
   static int		dotest (C_Op *);
---- 200,205 ----
+--- 211,216 ----
 ***************
-*** 217,222 ****
---- 219,226 ----
+*** 229,234 ****
+--- 231,239 ----
   static int		doreadonly (C_Op *);
   static int		doset (C_Op *);
   static int		dohistory (C_Op *);
 + extern int              dojobs(C_Op *);
++ extern int              docls(C_Op *);
 + 
   static void		setsig (int, int (*)());
   static int		rdexp (char **, int, char *);
   
 ***************
-*** 453,575 ****
+*** 466,588 ****
   }
   
   /*
@@ -1798,7 +2029,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
 !     Clear_Swap_File ();
 ! 
 !     while ((cp = t->words[n++]) != (char *)NULL)
-      {
+! {
 ! 	if (strcmp (cp, "off") == 0)
 ! 	    Swap_Mode = SWAP_OFF;
 ! 
@@ -1820,7 +2051,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
 ! /* If extended memory, they can specify the start address as a hex number */
 ! 
 ! 		    if (k == SWAP_EXTEND)
-! 		    {
+  		    {
 ! 			char	*sp;
 ! 			long	start;
 ! 
@@ -1860,7 +2091,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
       return 0;
   }
   
---- 457,479 ----
+--- 471,493 ----
   }
   
   /*
@@ -1885,7 +2116,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   }
   
 ***************
-*** 846,852 ****
+*** 859,865 ****
   	case FILE_REGULAR:
   	    return stat (*test_alist, &s) == 0 && S_ISREG(s.st_mode);
   
@@ -1893,7 +2124,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   	    return stat (*test_alist, &s) == 0 && S_ISDIR(s.st_mode);
   
   	case FILE_NONZERO:
---- 750,756 ----
+--- 764,770 ----
   	case FILE_REGULAR:
   	    return stat (*test_alist, &s) == 0 && S_ISREG(s.st_mode);
   
@@ -1902,7 +2133,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   
   	case FILE_NONZERO:
 ***************
-*** 948,957 ****
+*** 961,970 ****
   {
       unsigned int	cdrive;
       unsigned int	ndrive = tolower (**t->words) - 'a' + 1;
@@ -1913,7 +2144,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
       return (ndrive == cdrive) ? 0 : 1;
   }
   
---- 852,862 ----
+--- 866,876 ----
   {
       unsigned int	cdrive;
       unsigned int	ndrive = tolower (**t->words) - 'a' + 1;
@@ -1926,8 +2157,8 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   }
   
 ***************
-*** 969,974 ****
---- 874,880 ----
+*** 982,987 ****
+--- 888,894 ----
       int			first = 0;
       unsigned int	dummy;
       unsigned int	cdrive;
@@ -1936,7 +2167,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   /* If restricted shell - illegal */
   
 ***************
-*** 992,998 ****
+*** 1005,1011 ****
   
   /* Save the current drive */
   
@@ -1944,7 +2175,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   
   /* Scan for the directory.  If there is not a / or : at start, use the
    * CDPATH variable
---- 898,904 ----
+--- 912,918 ----
   
   /* Save the current drive */
   
@@ -1953,7 +2184,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   /* Scan for the directory.  If there is not a / or : at start, use the
    * CDPATH variable
 ***************
-*** 1011,1017 ****
+*** 1024,1030 ****
   
   	if (*(nd + 1) == ':')
   	{
@@ -1961,7 +2192,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   	    nd += 2;
   	}
   
---- 917,923 ----
+--- 931,937 ----
   
   	if (*(nd + 1) == ':')
   	{
@@ -1970,7 +2201,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   	}
   
 ***************
-*** 1038,1044 ****
+*** 1051,1057 ****
   
   /* Restore our original drive and restore directory info */
   
@@ -1978,7 +2209,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
       Getcwd ();
   
       print_error ("%s: bad directory\n", p);
---- 944,950 ----
+--- 958,964 ----
   
   /* Restore our original drive and restore directory info */
   
@@ -1987,11 +2218,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   
       print_error ("%s: bad directory\n", p);
 ***************
-*** 1756,1766 ****
-  #endif
-  
-  /*
-!  * Type fucntion: For each name, indicate how it would be interpreted
+*** 1773,1779 ****
    */
   
   static char	*type_ext[] = {
@@ -1999,11 +2226,7 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   };
   
   static int	dotype (t)
---- 1662,1672 ----
-  #endif
-  
-  /*
-!  * Type function: For each name, indicate how it would be interpreted
+--- 1680,1686 ----
    */
   
   static char	*type_ext[] = {
@@ -2012,49 +2235,37 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   
   static int	dotype (t)
 ***************
-*** 1776,1781 ****
---- 1682,1688 ----
-      bool		found;			/* Found flag		*/
-      char		*l_path;
-      Fun_Ops		*fops;
-+     char                *mp;
-  
-  /* Get some memory for the buffer */
-  
-***************
-*** 1789,1794 ****
---- 1696,1714 ----
+*** 1803,1809 ****
   
       while ((cp = t->words[n++]) != (char *)NULL)
       {
-+ 	if ( inbuilt (cp) )
-+         {
-+ 	    v1_puts (cp);
-+ 	    v1a_puts (" is a shell internal command");
-+ 	    continue;
-+         }
-+ 
-+         if ( cmd_internal(cp) )
-+         {
-+ 	    v1_puts (cp);
-+ 	    v1a_puts (" is a CMD.EXE internal command");
-+ 	    continue;
-+         }
+! 	if ( inbuilt (cp) )
+          {
+  	    v1_puts (cp);
+  	    v1a_puts (" is a shell internal command");
+--- 1710,1719 ----
   
-  /* Check for a function */
-  
+      while ((cp = t->words[n++]) != (char *)NULL)
+      {
+! 
+! /* Check for currently use inbuilt version */
+! 
+! 	if (inbuilt (cp, &inb) && inb)
+  	{
+  	    v1_puts (cp);
+  	    v1a_puts (" is a shell internal command");
 ***************
-*** 1841,1849 ****
+*** 1861,1869 ****
   
   		    else if ((stricmp (xp, ".exe") != 0) &&
   			     (stricmp (xp, ".com") != 0) &&
 ! 			     (stricmp (xp, ".bat") != 0))
   			continue;
   
+  		    Convert_Backslashes (strlwr (l_path));
   		    print_error ("%s is %s\n", cp, l_path);
   		    found = TRUE;
-  		}
---- 1761,1775 ----
+--- 1770,1779 ----
   
   		    else if ((stricmp (xp, ".exe") != 0) &&
   			     (stricmp (xp, ".com") != 0) &&
@@ -2062,83 +2273,67 @@ diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
   			continue;
   
 +                     strlwr(l_path);
-+ 
-+                     for ( mp = l_path; *mp; mp++ )
-+                       if ( *mp == '\\' )
-+                         *mp = '/';
-+ 
+  		    Convert_Backslashes (strlwr (l_path));
   		    print_error ("%s is %s\n", cp, l_path);
   		    found = TRUE;
-  		}
 ***************
-*** 1871,1880 ****
---- 1797,1808 ----
-  	"exec",		doexec,
-  	"exit",		doexit,
-  	"export",	doexport,
-+         "extproc",      donothing,
-  	"getopt",	dogetopt,
+*** 1898,1903 ****
+--- 1808,1814 ----
+  	"break",	dobreak,	BLT_CURRENT,
+  	"builtin",	dobuiltin,	(BLT_ALWAYS | BLT_CURRENT),
+  	"cd",		dochdir,	BLT_CURRENT,
++ 	"cls",		docls,          BLT_CURRENT,
+  	"continue",	docontinue,	BLT_CURRENT,
+  	"echo",		doecho,		BLT_CURRENT,
+  	"eval",		doeval,		BLT_CURRENT,
+***************
+*** 1904,1913 ****
+--- 1815,1826 ----
+  	"exec",		doexec,		BLT_CURRENT,
+  	"exit",		doexit,		BLT_CURRENT,
+  	"export",	doexport,	BLT_CURRENT,
++         "extproc",      donothing,      BLT_CURRENT,
+  	"getopt",	dogetopt,	BLT_CURRENT,
   #ifndef NO_HISTORY
-  	"history",	dohistory,
+  	"history",	dohistory,	BLT_CURRENT,
   #endif
-+         "jobs",         dojobs,
-  	"msdos",	domsdos,
-  	"pwd",		dopwd,
-  	"read",		doread,
++         "jobs",         dojobs,         BLT_CURRENT,
+  	"msdos",	domsdos,	BLT_CURRENT,
+  	"pwd",		dopwd,		BLT_CURRENT,
+  	"read",		doread,		BLT_CURRENT,
 ***************
-*** 1882,1888 ****
-  	"return",	doreturn,
-  	"set",		doset,
-  	"shift",	doshift,
-- 	"swap",		doswap,
-  	"test",		dotest,
-  	"trap",		dotrap,
-  	"type",		dotype,
---- 1810,1815 ----
+*** 1915,1921 ****
+  	"return",	doreturn,	BLT_CURRENT,
+  	"set",		doset,		BLT_CURRENT,
+  	"shift",	doshift,	BLT_CURRENT,
+- 	"swap",		doswap,		BLT_CURRENT,
+  	"test",		dotest,		BLT_CURRENT,
+  	"trap",		dotrap,		BLT_CURRENT,
+  	"type",		dotype,		BLT_CURRENT,
+--- 1828,1833 ----
 ***************
-*** 1911,1916 ****
---- 1838,1872 ----
-      }
+*** 1962,1968 ****
+   * Equivalent of printf without using streams
+   */
   
-      return (int (*)())NULL;
-+ }
-+ 
-+ /* recognize CMD.EXE internal commands */
-+ 
-+ char *cmd_tab[] =
-+ {
-+   "chcp", "cls", "copy",
-+   "date", "del", "detach", "dir",
-+   "erase",
-+   "md", "mkdir", "move",
-+   "ren", "rename", "rd", "rmdir",
-+   "start",
-+   "time",
-+   NULL
-+ };
-+ 
-+ #define cmds (sizeof(cmd_tab) / sizeof(char *) - 1)
-+ 
-+ char *cmd_internal(char *s)
-+ {
-+     int cnt;
-+ 
-+     for ( cnt = 0; cnt < cmds; cnt++ )
-+     {
-+ 	if (stricmp (cmd_tab[cnt], s) == 0)
-+ 	    return cmd_tab[cnt];
-+     }
-+ 
-+     return NULL;
-  }
+! void	v1printf (fmt)
+  char	*fmt;
+  {
+      va_list	ap;
+--- 1874,1880 ----
+   * Equivalent of printf without using streams
+   */
   
-  /* Write to stdout functions - printf, fputs, fputc, and a special */
-diff -cbBw sh-dos/sh8.c sh-os2/sh8.c
-*** sh-dos/sh8.c	Thu Jul 05 19:50:34 1990
---- sh-os2/sh8.c	Sat Aug 04 17:44:18 1990
+! void	v1printf (fmt, ...)
+  char	*fmt;
+  {
+      va_list	ap;
+diff -cbBwr orig/SRC/sh8.c os2/SRC/sh8.c
+*** orig/SRC/sh8.c	Wed Feb 20 21:25:10 1991
+--- os2/SRC/sh8.c	Wed Feb 20 20:22:18 1991
 ***************
-*** 58,63 ****
---- 58,64 ----
+*** 61,66 ****
+--- 61,67 ----
   #include <errno.h>
   #include <setjmp.h>
   #include <stdlib.h>
@@ -2147,7 +2342,41 @@ diff -cbBw sh-dos/sh8.c sh-os2/sh8.c
   #include <io.h>
   #include <stdarg.h>
 ***************
-*** 594,600 ****
+*** 67,73 ****
+  #include <string.h>
+  #include <unistd.h>
+  #include <limits.h>
+! #include <dirent.h>
+  #include <ctype.h>
+  #include "sh.h"
+  
+--- 68,74 ----
+  #include <string.h>
+  #include <unistd.h>
+  #include <limits.h>
+! #include <dir.h>
+  #include <ctype.h>
+  #include "sh.h"
+  
+***************
+*** 97,103 ****
+   * for a normal open.
+   */
+  
+! int	S_open (d_flag, name, mode)
+  bool	d_flag;
+  char	*name;
+  int	mode;
+--- 98,104 ----
+   * for a normal open.
+   */
+  
+! int	S_open (d_flag, name, mode, ...)
+  bool	d_flag;
+  char	*name;
+  int	mode;
+***************
+*** 598,604 ****
   /* Try the file name and then with a .sh appended */
   
       if ((i = Check_Script (strcpy (local_path, path), params, nargs)) < 0)
@@ -2155,7 +2384,7 @@ diff -cbBw sh-dos/sh8.c sh-os2/sh8.c
   
       DELETE (local_path);
       return i;
---- 595,602 ----
+--- 599,606 ----
   /* Try the file name and then with a .sh appended */
   
       if ((i = Check_Script (strcpy (local_path, path), params, nargs)) < 0)
@@ -2164,9 +2393,9 @@ diff -cbBw sh-dos/sh8.c sh-os2/sh8.c
   
       DELETE (local_path);
       return i;
-diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
-*** sh-dos/sh9.c	Thu Jul 05 19:50:34 1990
---- sh-os2/sh9.c	Sat Aug 04 19:02:28 1990
+diff -cbBwr orig/SRC/sh9.c os2/SRC/sh9.c
+*** orig/SRC/sh9.c	Wed Feb 20 21:21:22 1991
+--- os2/SRC/sh9.c	Mon Sep 10 12:19:18 1990
 ***************
 *** 74,84 ****
   #include <errno.h>
@@ -2206,14 +2435,15 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   
   /* Function Declarations */
   
---- 102,112 ----
+--- 102,113 ----
   #define KF_DELETELEFT	0x0e		/* Delete left character	*/
   #define KF_COMPLETE	0x0f		/* Complete file name		*/
   #define KF_DIRECTORY	0x10		/* Complete directory function	*/
 ! #define KF_JOBS         0x11            /* Jobs list */
-! #define KF_END_FKEYS	0x12		/* End of function keys		*/
-! #define KF_RINGBELL	0x12		/* Ring bell			*/
-! #define KF_HALFHEIGTH	0x13		/* Half height cursor		*/
+! #define KF_CLS          0x12            /* Jobs list */
+! #define KF_END_FKEYS	0x13		/* End of function keys		*/
+! #define KF_RINGBELL	0x13		/* Ring bell			*/
+! #define KF_HALFHEIGTH	0x14		/* Half height cursor		*/
 ! 
   
   /* Function Declarations */
@@ -2227,7 +2457,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   static char	*c_buffer_pos;		/* Position in command line	*/
   static char	*end_buffer;		/* End of command line		*/
   static int	m_line = 0;		/* Max write line number	*/
---- 135,141 ----
+--- 136,142 ----
   static int	Max_Cols  = 80;		/* Max columns			*/
   static int	Max_Lines = 25;		/* Max Lines			*/
   #ifndef NO_HISTORY
@@ -2256,7 +2486,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   };
   
   /* Arrary of history Items */
---- 167,186 ----
+--- 168,188 ----
       { "WordRight",	0,	't',	KF_WORDRIGHT },
       { "WordLeft",	0,	's',	KF_WORDLEFT },
       { "Start",		0,	'G',	KF_START },
@@ -2269,6 +2499,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
 !     { "Complete",	0x09,	0,	KF_COMPLETE },
       { "Directory",	0,	0x0f,	KF_DIRECTORY },
 +     { "Jobs",		0,	0x94,	KF_JOBS },
++     { "ClearScreen",	0x0C,	0,	KF_CLS },
   
   /* End of function keys - flags */
   
@@ -2286,7 +2517,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   
   	while (((a_key = (char)getch ()) != 0x1a) && (a_key != NL) &&
   		(a_key != '\r'))
---- 244,250 ----
+--- 246,252 ----
   
       while (TRUE)
       {
@@ -2296,7 +2527,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   		(a_key != '\r'))
 ***************
 *** 246,251 ****
---- 252,260 ----
+--- 254,262 ----
   
   /* If function key, get the fkey value */
   
@@ -2308,13 +2539,19 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   
 ***************
 *** 482,487 ****
---- 491,503 ----
+--- 493,511 ----
   
      	    return TRUE;
   
 +         case KF_JOBS:
 + 	    v1_putc (NL);
 +             dojobs(NULL);
++ 	    put_prompt (last_prompt);
++ 	    read_cursor_position ();
++             return TRUE;
++ 
++         case KF_CLS:
++             docls(NULL);
 + 	    put_prompt (last_prompt);
 + 	    read_cursor_position ();
 +             return TRUE;
@@ -2328,14 +2565,14 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   bool		mode;
   {
 !     union REGS		r;
-  
+! 
 ! /* Get the current cursor position to get the cursor lines */
-  
+! 
 !     r.h.ah = 0x03;
 !     int86 (0x10, &r, &r);
-! 
+  
 ! /* Reset the type */
-! 
+  
 !     r.h.ah = 0x01;
 !     r.h.ch = (unsigned char)(!mode ? r.h.cl - 1
 ! 				   : (KF_List[KF_HALFHEIGTH].akey
@@ -2344,7 +2581,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   }
   #endif
   
---- 537,550 ----
+--- 545,558 ----
   static void	set_cursor_shape (mode)
   bool		mode;
   {
@@ -2373,7 +2610,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   }
   
   /* Re-position the cursor */
---- 552,561 ----
+--- 560,569 ----
   
   static void	read_cursor_position ()
   {
@@ -2388,7 +2625,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
 *** 557,579 ****
   int		new;
   {
-      int		diff;
+      int diff;
 !     union REGS	r;
   
 !     r.h.ah = 0x02;				/* Set new position	*/
@@ -2409,7 +2646,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   }
   
   /* Erase to end of line (avoid need for STUPID ansi.sys memory eater!) */
---- 565,585 ----
+--- 573,593 ----
   int		new;
   {
       int diff;
@@ -2432,15 +2669,15 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   
   /* Erase to end of line (avoid need for STUPID ansi.sys memory eater!) */
 ***************
-*** 580,611 ****
+*** 580,610 ****
   
   static void	erase_to_end_of_line ()
   {
 !     union REGS		r;
 !     unsigned char	backg;
-! 
-! /* Get the background attribute of the cursor */
   
+! /* Get the background attribute of the cursor */
+! 
 !     r.h.ah = 0x08;
 !     r.h.bh = 0;
 !     int86 (0x10, &r, &r);
@@ -2460,12 +2697,11 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
 ! 	r.x.ax = 0x0a20;
 ! 	r.x.bx = backg;
 ! 	int86 (0x10, &r, &r);
-      }
-- }
+! }
+  }
   
   /* Generate the new cursor position */
-  
---- 586,596 ----
+--- 594,603 ----
   
   static void	erase_to_end_of_line ()
   {
@@ -2476,7 +2712,6 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   }
   
   /* Generate the new cursor position */
-  
 ***************
 *** 1069,1075 ****
       int			fn_len, pre_len, i;
@@ -2486,7 +2721,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
       int			found_cnt = 0;
       int			max_per_line;
       static char		*ms_drive = "a:/";
---- 1054,1060 ----
+--- 1062,1068 ----
       int			fn_len, pre_len, i;
       DIR			*dn;
       char		d_name [NAME_MAX + 1];
@@ -2503,7 +2738,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
       {
   	if (strnicmp (d_ce->d_name, fn_mstart, fn_len) == 0)
   	{
---- 1161,1167 ----
+--- 1169,1175 ----
   
   /* Scan the directory */
   
@@ -2513,7 +2748,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   	{
 ***************
 *** 1269,1274 ****
---- 1254,1260 ----
+--- 1262,1268 ----
       c_buffer_pos = l_buffer;	/* Initialise			*/
       end_buffer = l_buffer;
       insert_mode = im;
@@ -2539,7 +2774,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   	v1_putc (NL);
   }
   
---- 1397,1413 ----
+--- 1405,1421 ----
   
   void	In_Col_Zero ()
   {
@@ -2566,16 +2801,16 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
 ! 
 !     Max_Cols = *(int *)(0x0040004aL);
 !     Max_Lines = 25;
-  
-! /* Is this an EGA?  This test was found in NANSI.SYS */
 ! 
+! /* Is this an EGA?  This test was found in NANSI.SYS */
+  
 !     r.h.ah = 0x12;
 !     r.x.bx = 0xff10;
 !     int86 (0x10, &r, &r);
-! 
+  
 !     if (r.x.bx & 0xfefc)
 ! 	return;
-! 
+  
 ! /* Else read the number of rows */
   
 !     r.x.ax = 0x1130;
@@ -2585,7 +2820,7 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   }
   
   /* Ring Bell ? */
---- 1415,1427 ----
+--- 1423,1448 ----
   
   static void	Get_Screen_Params ()
   {
@@ -2596,237 +2831,25 @@ diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
   
 !     Max_Cols  = viomi.col;
 !     Max_Lines = viomi.row;
+! }
+  
+! /* Clear Screen */
+  
+! int docls(C_Op *dummy)
+! {
+!     v1_putc (27);
+!     v1_putc ('[');
+!     v1_putc ('2');
+!     v1_putc ('J');
+!     v1_putc (27);
+!     v1_putc ('[');
+!     v1_putc ('H');
   }
   
   /* Ring Bell ? */
-diff -cbBw sh-dos/sh10.c sh-os2/sh10.c
-*** sh-dos/sh10.c	Thu Jul 05 19:50:22 1990
---- sh-os2/sh10.c	Fri Aug 03 20:26:34 1990
-***************
-*** 30,36 ****
-  #include <sys/stat.h>
-  #include <stdio.h>
-  #include <process.h>
-- #include <dos.h>
-  #include <signal.h>
-  #include <errno.h>
-  #include <setjmp.h>
---- 30,35 ----
-diff -cbBw sh-dos/stdargv.c sh-os2/stdargv.c
-*** sh-dos/stdargv.c	Sat Feb 17 00:15:50 1990
---- sh-os2/stdargv.c	Sat Aug 04 16:23:50 1990
-***************
-*** 32,51 ****
-  #include <stdio.h>			/* Standard I/O delarations         */
-  #include <stdlib.h>			/* Standard library functions       */
-  #include <errno.h>			/* Error number declarations        */
-- #include <dos.h>			/* DOS functions declarations       */
-- #include <bios.h>			/* BIOS functions declarations      */
-  #include <ctype.h>			/* Character type declarations      */
-  #include <string.h>			/* String library functions         */
-  #include <limits.h>			/* String library functions         */
-  #include <fcntl.h>			/* File Control Declarations        */
-  #include <io.h>				/* Input/Output Declarations        */
-! #include <dirent.h>			/* Direction I/O functions	    */
-  
-  /*
-   *  DATA DEFINITIONS:
-   */
-  
-! #define MAX_LINE	160		/* Max line length		*/
-  #define S_ENTRY		sizeof (char *)
-  
-  /*
---- 32,54 ----
-  #include <stdio.h>			/* Standard I/O delarations         */
-  #include <stdlib.h>			/* Standard library functions       */
-  #include <errno.h>			/* Error number declarations        */
-  #include <ctype.h>			/* Character type declarations      */
-  #include <string.h>			/* String library functions         */
-  #include <limits.h>			/* String library functions         */
-  #include <fcntl.h>			/* File Control Declarations        */
-  #include <io.h>				/* Input/Output Declarations        */
-! #include <changes.h>
-! #include <dir.h>			/* Direction I/O functions	    */
-  
-+ #define INCL_NOPM
-+ #define INCL_DOS
-+ #include <os2.h>
-+ 
-  /*
-   *  DATA DEFINITIONS:
-   */
-  
-! #define MAX_LINE	256		/* Max line length		*/
-  #define S_ENTRY		sizeof (char *)
-  
-  /*
-***************
-*** 71,76 ****
---- 74,82 ----
-  extern char	**__argv; 		/* Current argument address	*/
-  extern int	__argc; 		/* Current argument count	*/
-  
-+ extern unsigned _aenvseg;
-+ extern unsigned _acmdln;
-+ 
-  /*
-   *  MODULE ABSTRACT: _setargv
-   *
-***************
-*** 80,87 ****
-  void	_setargv ()
-  {
-  					/* Set up pointer to command line */
-!     char far		*argvp = (char far *)((((long)_psp) << 16) + 0x081L);
-!     unsigned int	envs = *(int far *)((((long)_psp) << 16) + 0x02cL);
-      char far		*s; 		/* Temporary string pointer    	*/
-  #ifndef M_I86LM
-      char		buf[MAX_LINE];	/* Temporary space		*/
---- 86,92 ----
-  void	_setargv ()
-  {
-  					/* Set up pointer to command line */
-!     char far		*argvp = MAKEP(_aenvseg, _acmdln);
-      char far		*s; 		/* Temporary string pointer    	*/
-  #ifndef M_I86LM
-      char		buf[MAX_LINE];	/* Temporary space		*/
-***************
-*** 110,126 ****
-  /* In the case of DOS 3+, we look in the environment space */
-  
-      else
-!     {
-! 	s = (char far *)(((long)envs) << 16);
-! 
-! 	while (*s)
-! 	{
-! 	    while (*(s++) != 0);
-! 	}
-  
-- 	s += 3;
--     }
-- 
-      _pgmptr = s;
-  
-  #ifndef M_I86LM
---- 115,122 ----
-  /* In the case of DOS 3+, we look in the environment space */
-  
-      else
-! 	for ( s = argvp; *(s - 1); s-- );
-  
-      _pgmptr = s;
-  
-  #ifndef M_I86LM
-***************
-*** 234,240 ****
-      char		*name;		/* Match string			*/
-      char		*p, *p1;
-      DIR			*dp;
-!     struct dirent	*c_de;
-      unsigned int	c_drive;	/* Current drive		*/
-      unsigned int	m_drive;	/* Max drive			*/
-      unsigned int	s_drive;	/* Selected drive		*/
---- 230,236 ----
-      char		*name;		/* Match string			*/
-      char		*p, *p1;
-      DIR			*dp;
-!     struct direct	*c_de;
-      unsigned int	c_drive;	/* Current drive		*/
-      unsigned int	m_drive;	/* Max drive			*/
-      unsigned int	s_drive;	/* Selected drive		*/
-***************
-*** 241,246 ****
---- 237,244 ----
-      unsigned int	x_drive, y_drive;	/* Dummies		*/
-      char		*multi;		/* Multi-drive flag		*/
-      char		t_drive[2];
-+     ULONG               l_map;
-+     int                 cnt;
-  
-  /* Convert file name to lower case */
-  
-***************
-*** 250,283 ****
-  
-      if ((multi = _ex_multi_drive (prefix)) != (char *)NULL)
-      {
-! 	_dos_getdrive (&c_drive);	/* Get number of drives		*/
-! 	_dos_setdrive (c_drive, &m_drive);
-  	t_drive[1] = 0;
-  
-! 	for (s_drive = 1; s_drive <= m_drive; ++s_drive)
-  	{
-! 	    _dos_setdrive (s_drive, &x_drive);
-! 	    _dos_getdrive (&y_drive);
-! 	    _dos_setdrive (c_drive, &x_drive);
-! 
-! /* Check to see if the second diskette drive is really there */
-! 
-! 	    if (((_bios_equiplist () & 0x00c0) == 0x0000) && (s_drive == 2))
-! 		continue;
-! 
-! /* If the drive exists and is in our list - process it */
-! 
-  	    *multi = 0;
-- 	    *t_drive = (char)(s_drive + 'a' - 1);
-  
-! 	    if ((y_drive == s_drive) && pnmatch (t_drive, prefix, 0))
-  	    {
-  		*multi = ':';
-! 		*fn = *t_drive;
-  		strcpy (fn + 1, multi);
-  		f_count += ex_pfield (fn, postfix);
-  	    }
-! 
-  	    *multi = ':';
-  	}
-  
---- 248,270 ----
-  
-      if ((multi = _ex_multi_drive (prefix)) != (char *)NULL)
-      {
-!         DosQCurDisk((PUSHORT) &c_drive, &l_map);
-  	t_drive[1] = 0;
-  
-!         for ( cnt = 1; cnt <= 26; cnt++, l_map >>= 1 )
-!           if ( l_map & 1L )
-  	  {
-! 	      t_drive[0] = (char)(cnt + 'a' - 1);
-                *multi = 0;
-  
-! 	      if (pnmatch (t_drive, prefix, 0))
-  	      {
-                  *multi = ':';
-! 	  	fn[0] = t_drive[0];
-  	  	strcpy (fn + 1, multi);
-  	  	f_count += ex_pfield (fn, postfix);
-  	      }
-!               else
-                  *multi = ':';
-  	  }
-  
-***************
-*** 342,348 ****
-  
-  /* Are there any matches */
-  
-!     while ((c_de = readdir (dp)) != (struct dirent *)NULL)
-      {
-  	if ((*c_de->d_name == '.') && (*name != '.'))
-  	    continue;
---- 329,335 ----
-  
-  /* Are there any matches */
-  
-!     while ((c_de = readdir (dp)) != (struct direct *)NULL)
-      {
-  	if ((*c_de->d_name == '.') && (*name != '.'))
-  	    continue;
-diff -cbBw sh-dos/unistd.h sh-os2/unistd.h
-*** sh-dos/unistd.h	Sat Feb 17 00:15:34 1990
---- sh-os2/unistd.h	Mon May 21 20:26:10 1990
+diff -cbBwr orig/SRC/unistd.h os2/SRC/unistd.h
+*** orig/SRC/unistd.h	Wed Feb 20 21:21:24 1991
+--- os2/SRC/unistd.h	Mon May 21 20:26:10 1990
 ***************
 *** 4,10 ****
   /*  unistd.h  */

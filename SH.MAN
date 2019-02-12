@@ -15,8 +15,6 @@ Changes:
 
 - #! in shell scripts works now correctly with, for example, gawk
 
-- the internal commands of CMD.EXE are recognized
-
 - the "type" internal command of sh was changed to recognize
   the internal commands of sh as well as CMD.EXE commands
 

@@ -10,6 +10,7 @@
 #include <sys/types.h>
 #include <setjmp.h>
 #include <unistd.h>
+#include <dir.h>
 #include "sh.h"
 
 #define INCL_NOPM

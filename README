@@ -13,9 +13,12 @@
  2.  The sources (or parts thereof) or objects generated from the
      sources (or parts of sources) cannot be sold under any circumstances.
 
-    $Header: readme 1.7 90/04/03 18:07:01 MS_user Exp $
+    $Header: C:/SRC/SHELL/RCS/readme 1.8 90/08/15 01:18:53 MS_user Exp $
 
     $Log:	readme $
+	Revision 1.8  90/08/15  01:18:53  MS_user
+	Add 1.6.3 comment
+
 	Revision 1.7  90/04/03  18:07:01  MS_user
 	Some changes for 1.6 (Int 24 and Config file)
 
@@ -107,6 +110,8 @@ manual pages.
     Unix V.4.
 
 11) A configuration file is supported to allow edit key specification.
+
+12) The support of POSIX P1003.2 commands has been started.
 
 The shell was built using MS-DOS C and MASM v5.1 in large model mode.
 

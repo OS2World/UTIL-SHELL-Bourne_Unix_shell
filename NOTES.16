@@ -1,4 +1,4 @@
-Version 1.6.2 Release Notes:
+Version 1.6.4 Release Notes:
 
 Note: Release 1.6.1 did occur to comp.ibm.pc.binaries.  However, the
 transmission was corrupt and by the time I was notified (the moderator having
@@ -35,7 +35,14 @@ The following problems have been fixed in 1.6.2 (including 1.6).
   18.	The directory routines have been modified to correctly handle
 	all valid Unix format directory names (ie a Unix directory name
 	can end in /.  However, DOS does not think this is a directory).
-
+  19.	A bug in director.c which caused the shell to crash or hang has
+	been fixed.
+  20.	The DOS 4 command processor does not like the use of switchar.
+	The code has been fixed to cope with DOS 4.
+  21.	A bug in the processing of functions has been fixed which caused
+	the shell to crash or hang has been fixed.
+  22.	A bug in the function code that caused case functions to hang
+	has been fixed.
 The following enhancements have been made:
 
    1.   /dev/tty and /dev/null are mapped to /dev/con and /dev/nul internally
@@ -69,6 +76,12 @@ The following enhancements have been made:
 	data and stack space after the first write.
    19.	The ms_dio function have been enhanced to support raw and block
 	devices (well not really - just the stat and fstat functions).
+   20.  The POSIX variable substitution command ${#name} to give the
+	string length has been implemented.
+   21.  The POSIX I/O option <> has been implemented.
+   22.  The POSIX I/O options ${#*%} and ~ have been implemented.
+   23.  The builtin command command has been implemented.
+   24.  The source for stdargv.c has been modified to work under OS/2
 
 The following enhancements/bugs remain outstanding:
 
@@ -84,6 +97,12 @@ The following enhancements/bugs remain outstanding:
 	processing of escape characters.  The shell uses the 8-bit to
 	mark escaped characters (Release 1.7).
 
+    3.  Interrupting a disk swap at the wrong time may cause the shell to
+	hang.  I've tried disabling Control-Break during disk read/writes
+	but this only causes the shell to hang on re-load every time in
+	some environments.  In the next release, I'm going to put in some
+	checks and issue re-read/writes when necessary.
+
 Thanks are due to
 
     Greg Yachuk
@@ -92,6 +111,7 @@ Thanks are due to
     John B Thiel
     Harry McGavran
     Bill Davidsen
+    Richard J Reiner
 
 for their comments, fixes, tolerance etc in testing release 1.6
 
