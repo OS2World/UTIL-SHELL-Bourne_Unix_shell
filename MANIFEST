@@ -1,0 +1,35 @@
+Install			| Installation instructions
+MANIFEST		| This list
+Notes			| Some addition notes
+ReadMe			| The Release Readme
+sh.1			| The Manual page in *roff format
+include/Changes		| Changes to standard include files
+include/dirent.h	| Directory (3) functions include
+include/unistd.h	| unistd for MSDOS
+include/ms_dio.h	| MSDOS raw disk/memory I/O include file
+include/sys/dirent.h	| Second part of directory (3) functions include file
+include/sys/proto.h	| Prototype definitions
+lib/ms_dio.c		| MSDOS raw disk/memory I/O functions
+lib/director.c		| POSIX directory (3) functions for MSDOS
+lib/popen.c		| popen/pclose for MSDOS
+lib/syserr.c		| Modified sys_errlist for MSDOS
+lib/stdargv.c		| Replacement command list processing for programme
+lib/pnmatch.c		| Pattern matching function
+lib/getopt.c		| getopt function
+scripts/l		| A sample shell script
+scripts/extend.lst	| A sample extended command line processing list
+scripts/profile.sh	| A sample start up shell script
+scripts/sh.ini		| A sample shell initialisation file
+shell/Makefile		| Shell - makefile
+shell/sh0.asm		| Shell - Swap functions
+shell/sh1.c		| Shell - Main program and memory control functions
+shell/sh2.c		| Shell - Parser functions
+shell/sh3.c		| Shell - Parse tree processing functions
+shell/sh4.c		| Shell - Word processing functions
+shell/sh5.c		| Shell - Filename expansion functions
+shell/sh6.c		| Shell - Global variables
+shell/sh7.c		| Shell - Built-in functions
+shell/sh8.c		| Shell - Unix I/O Emulation
+shell/sh9.c		| Shell - History processing functions
+shell/sh10.c		| Shell - Function print/save/delete functions
+shell/sh.h		| Shell - Header file

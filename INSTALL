@@ -1,0 +1,72 @@
+ MS-DOS Shell Version 1.6	INSTALL				April 1990
+
+ MS-DOS SHELL - Copyright (c) 1990 Data Logic Limited and Charles Forsyth
+
+ This code is based on (in part) the shell program written by Charles
+ Forsyth and is subject to the following copyright restrictions:
+
+ 1.  Redistribution and use in source and binary forms are permitted
+     provided that the above copyright notice is duplicated in the
+     source form and the copyright notice in file sh6.c is displayed
+     on entry to the program.
+
+ 2.  The sources (or parts thereof) or objects generated from the
+     sources (or parts of sources) cannot be sold under any circumstances.
+
+    $Header: install 1.2 90/04/03 18:03:28 MS_user Exp $
+
+    $Log:	install $
+	Revision 1.2  90/04/03  18:03:28  MS_user
+	Upgrade for 1.6
+
+	Revision 1.1  90/01/29  18:03:04  MS_user
+	Initial revision
+
+________________________________________________________________________________
+
+To rebuild and install the shell, you should follow the following the
+steps:
+
+1)  Load the include files in the include directory into the standard
+    location (\msc\include or equivalent).  Read CHANGES file for the
+    additional definitions which are required in the standard Microsoft
+    5 include files and edit them in to the appropriate files.
+
+    We have standardised our MSDOS and Unix include files such that
+    the same include file exists our Unix system and MSDOS systems.
+    This makes porting a lot easier.  If you don't want to edit the
+    standard include files, you will have to generate an new include
+    file for the shell and include it as the first include in all the
+    C sources for the additional library functions and the Shell itself
+
+2)  Modify the library function open so that the O_NOINHERIT flag is
+    passed to MSDOS by the library.  This is not strictly necessary.
+    I did it using CodeView to see where the library function masks
+    the bottom three bits, noted the bytes around this location,
+    extracted the open function from the library, patched the mask
+    to be 0x83 instead of 0x03, and then replaced the function in the
+    library (Also see the Patch.Lib file).
+
+3)  Compile the library files in the directory /lib in large model mode
+    and add the objects to your large model library
+
+    cl -c -AL -Olt *.c
+    <appropriate library commands>
+
+4)  Build the shell, either using make or
+
+    cl -c -AL -Olt *.c
+    masm /Ml sh0.asm
+    link sh0+sh1+sh2+sh3+sh4+sh5+sh6+sh7+sh8+sh9+sh10/noi, sh.exe;
+
+    Note that the order is important.  SH0.OBJ must be the first object
+    file in the load line.
+
+    Install the shell in its correct location.
+
+5)  Modify the initialisation file sh.ini for your edit key preferences.
+
+6)  Modify the scripts as appropriate for your installation and install
+    them in the correct directories.
+
+7)  Type "sh -0" and see what happens.

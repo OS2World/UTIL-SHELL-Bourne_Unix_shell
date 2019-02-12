@@ -1,0 +1,48 @@
+The following addition points are noted about the Shell.
+
+1)  EMS 3.2 or above is required if expanded memory is to be used.
+
+2)  It has been tested on MS-DOS 3.3 and 4.0 and under OS/2 in the
+    DOS box.
+
+3)  Not all the addition library functions are required.  Some are
+    just included for your interest.  Their functionality is
+    briefly described below:
+
+	director.c (required)
+
+	MSDOS versions of the POSIX directory (3) functions (see
+	POSIX standards and Unix manual pages for further information).
+
+	getopt.c (required)
+
+	The getopt function
+
+	stdargv.c (required)
+
+	A replacement for the standard Microsoft library stdargv.obj.
+	This function tries to provide the wildcard expansion functionality
+	normally provided by Unix.  *, ?, [] and \ are supported.
+	Environment variables are expanded and the selection of files
+	across wildcard drive letters is supported (ie *:*.c will
+	expand to all the .c files in the current directory of all
+	drives).
+
+	pnmatch.c (required)
+
+	A pattern match function used by stdargv
+
+	ms_dio.c
+
+	A set of functions to allow you to do raw disk and memory
+	I/O.  The include file ms_dio has a set of macros to
+	change the normal library calls so that they go via this
+	package.
+
+	popen.c
+
+	A version of popen for MS-DOS
+
+	syserr.c
+
+	A modified version of the standard Microsoft error list.

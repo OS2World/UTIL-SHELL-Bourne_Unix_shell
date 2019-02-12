@@ -1,0 +1,92 @@
+From tumuc!fauern!unido!mcsun!uunet!allbery Fri Feb 16 16:33:05 1990
+Article 392 of comp.sources.misc:
+Path: lan!tumuc!fauern!unido!mcsun!uunet!allbery
+From: istewart@datlog.co.uk (Ian Stewartson)
+Newsgroups: comp.sources.misc
+Subject: v10i053: MSDOS Shell (sh) Implementation - Part 00 of 05
+Message-ID: <78912@uunet.UU.NET>
+Date: 14 Feb 90 01:53:16 GMT
+Sender: allbery@uunet.UU.NET
+Organization: ITM Sector, Data Logic Ltd. (A Raytheon Company)
+Lines: 44
+Approved: allbery@uunet.UU.NET (Brandon S. Allbery - comp.sources.misc)
+
+Posting-number: Volume 10, Issue 53
+Submitted-by: istewart@datlog.co.uk (Ian Stewartson)
+Archive-name: sh_dos/part01
+
+Brandon,
+
+This is part 0 of a five part (sh01, sh02, sh03, sh04 and sh05) archive.  It
+contains the source for an implementation of the Unix shell under MSDOS.  As
+far as possible it is compatible with the System V.3 program sh(1).  The
+following differences are noted:
+
+1)  Background or asynchronous commands are not supported
+
+2)  Certain internal commands which have no equivalent MSDOS supported
+    functionality support (ulimit, time etc) are not provided.
+
+3)  Command hashing and accounting are not supported.
+
+4)  8 bit character sets are not supported.
+
+The enhancements have been made for the MSDOS environment and these are
+described in the Readme in the archive.
+
+Why - well I spent far to much time swapping between the two to have to
+think about the shell - so I ported the Minix Shell over Christmas.  I
+mailed Charles Forsyth who wrote the original version for minix and he is
+happy to allow it to be release (given the copyright notices in the source -
+don't remove the copyright or sell it).
+
+We have tested it under MSDOS 3.3 and 4.0 and the DOS box for OS/2.  It
+is not designed as a replacement for command.com (since you need command.com
+to load your TSRs), just a program you can run at the end of the autoexec.bat
+to move you into Unix.  Of course, once you leave the MSDOS world behind
+and move into a psuedo Unix world you need your own Unix commands (cat, mkdir,
+rmdir etc).  But in the words of at least one Professor of Mathematics - that
+it left as a trivial exercise for the reader.
+
+Regards,
+
+Ian Stewartson
+Data Logic Ltd, Queens House, Greenhill Way, Harrow, Middlesex, HA1 1YR, UK.
+(Phone) +44 1 863 0383 (Telex) 888103 (Fax) +44 1 861 2010
+	+44 81 863 0383 after May 1990.
+(Network) istewart@datlog.co.uk or ukc!datlog!istewart
+
+
+From tumuc!fauern!unido!mcsun!uunet!allbery Fri Feb 16 16:35:24 1990
+Article 398 of comp.sources.misc:
+Path: lan!tumuc!fauern!unido!mcsun!uunet!allbery
+From: istewart@datlog.co.uk (Ian Stewartson)
+Newsgroups: comp.sources.misc
+Subject: v10i059: MSDOS Shell (sh) Implementation - Addendum
+Message-ID: <78918@uunet.UU.NET>
+Date: 14 Feb 90 01:57:29 GMT
+Sender: allbery@uunet.UU.NET
+Organization: ITM Sector, Data Logic Ltd. (A Raytheon Company)
+Lines: 18
+Approved: allbery@uunet.UU.NET (Brandon S. Allbery - comp.sources.misc)
+
+Posting-number: Volume 10, Issue 59
+Submitted-by: istewart@datlog.co.uk (Ian Stewartson)
+Archive-name: sh_dos/part07
+
+Brandon,
+
+My apologies for having to add this note, but I have just realised that
+it is not obvious from the documentation that we have only built the
+program using the Microsoft 5.1 C compiler in large model mode.  We don't
+have the facilities to built using Turbo-C or anything else.
+
+Regards,
+
+Ian Stewartson
+Data Logic Ltd, Queens House, Greenhill Way, Harrow, Middlesex, HA1 1YR, UK.
+(Phone) +44 1 863 0383 (Telex) 888103 (Fax) +44 1 861 2010
+	+44 81 863 0383 after May 1990.
+(Network) istewart@datlog.co.uk or ukc!datlog!istewart
+
+

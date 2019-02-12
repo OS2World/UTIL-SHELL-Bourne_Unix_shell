@@ -1,0 +1,2812 @@
+Only in sh-os2: newfiles.os2
+Only in sh-os2: patches.os2
+Only in sh-os2: changes.h
+Only in sh-os2: dir.h
+Only in sh-os2: dir_os2.c
+Only in sh-os2: jobs.c
+Only in sh-os2: sh.cs
+Only in sh-os2: sh.def
+diff -cbBw sh-dos/sh.h sh-os2/sh.h
+*** sh-dos/sh.h	Thu Jul 05 19:50:16 1990
+--- sh-os2/sh.h	Sat Aug 04 17:41:46 1990
+***************
+*** 81,91 ****
+   */
+  
+  #define PATCHLEVEL	6
+! #define	LINE_MAX	1000	/* Command line length			*/
+  #define HISTORY_MAX	100	/* History array length			*/
+  				/* Space for full file name		*/
+  #define FFNAME_MAX	(PATH_MAX + NAME_MAX + 4)
+! #define CMD_LINE_MAX	127	/* Max command line length		*/
+  #define SSAVE_IO_SIZE	4	/* Save IO array malloc increment	*/
+  
+  #define	NPUSH		8	/* limit to input nesting		*/
+--- 81,91 ----
+   */
+  
+  #define PATCHLEVEL	6
+! #define	LINE_MAX	1024	/* Command line length			*/
+  #define HISTORY_MAX	100	/* History array length			*/
+  				/* Space for full file name		*/
+  #define FFNAME_MAX	(PATH_MAX + NAME_MAX + 4)
+! #define CMD_LINE_MAX	2048	/* Max command line length		*/
+  #define SSAVE_IO_SIZE	4	/* Save IO array malloc increment	*/
+  
+  #define	NPUSH		8	/* limit to input nesting		*/
+***************
+*** 98,103 ****
+--- 98,105 ----
+  #define SP		' '
+  #define	NOT		'^'
+  
++ #define BATCHEXT        ".cmd"
++ 
+  /* Here we introduce a new boolean value - MAYBE.  This is required for
+   * a special case of the grave function
+   */
+***************
+*** 171,216 ****
+  
+  #define	FEXEC		0x0001	/* execute without forking		*/
+  
+- /* MSDOS Memory Control Block chain structure */
+- 
+- #pragma pack (1)
+- struct MCB_list	{
+-     char		MCB_type;	/* M or Z			*/
+-     unsigned int	MCB_pid;	/* Process ID			*/
+-     unsigned int	MCB_len;	/* MCB length			*/
+- };
+- #pragma pack ()
+- 
+- #define MCB_CON		'M'		/* More MCB's			*/
+- #define MCB_END		'Z'		/* Last MCB's			*/
+- 
+- /* Externs for Swapper assembler function */
+- 
+- extern char		cmd_line[];	/* Command line			*/
+- extern char		path_line[];	/* Process path			*/
+  extern unsigned int	SW_intr;	/* interrupt pending		*/
+- extern unsigned int	SW_Blocks;	/* Number of blocks to read	*/
+- extern unsigned int	SW_SBlocks;	/* Short Number of blocks to	*/
+- 					/* read				*/
+- extern int		SW_fp;		/* File or EMS Handler		*/
+- extern int		SW_Pwrite;	/* Partial write to disk?	*/
+- extern unsigned long	SW_EMstart;	/* Start addr of extend mem	*/
+- extern unsigned int	SW_Mode;	/* Type of swapping to do	*/
+- 					/* 1 - disk			*/
+- 					/* 2 - Extended	memory		*/
+- 					/* 3 - EMS Driver		*/
+- 					/* 4 - XMS Driver		*/
+- extern unsigned int	SW_EMSFrame;	/* EMS Frame segment		*/
+- 
+- extern unsigned int	etext;		/* End of text segment		*/
+- extern int		Swap_Mode;	/* Swapping mode		*/
+- 
+- /* If you change these values, change sh7, swap_device as well */
+- 
+- #define SWAP_OFF	0x0000		/* No swapping			*/
+- #define SWAP_DISK	0x0001		/* Disk only			*/
+- #define SWAP_EXTEND	0x0002		/* Extended memory		*/
+- #define SWAP_EXPAND	0x0004		/* Expanded memory		*/
+  
+  /*
+   * flags to control evaluation of words
+--- 173,179 ----
+***************
+*** 569,574 ****
+--- 532,538 ----
+  extern bool	eqname (char *, char *);
+  extern bool	any (char, char *);
+  extern int	(*inbuilt (char *))();
++ extern char     *cmd_internal(char *s);
+  extern char	*path_append (char *, char *, char *);
+  extern void	unset (char *, bool);
+  extern int	S_open (bool, char *, int, ...);
+***************
+*** 621,641 ****
+  extern void	Clear_Extended_File (void);
+  extern void	Print_Version (int);
+  extern bool	anys (char *, char *);
+- extern void	Clear_Swap_File (void);
+- 
+- /*
+-  * Interrupt handling
+-  */
+- 
+- extern void interrupt	SW_Int24 (void);	/* Int 24 New address	*/
+- extern void (interrupt far *SW_I0_V) (void);	/* Int 0 address	*/
+- extern void (interrupt far *SW_I23_V) (void);	/* Int 23 address	*/
+- 
+- /*
+-  * XMS Driver functions
+-  */
+- 
+- extern void (far *SW_XMS_Driver) (void);	/* XMS Driver Interface	*/
+- extern int		SW_XMS_Gversion (void);
+- extern int		SW_XMS_Allocate (unsigned int);
+- extern int		SW_XMS_Free (int);
+--- 585,587 ----
+diff -cbBw sh-dos/sh1.c sh-os2/sh1.c
+*** sh-dos/sh1.c	Thu Jul 05 19:50:22 1990
+--- sh-os2/sh1.c	Sat Aug 04 13:47:40 1990
+***************
+*** 87,92 ****
+--- 87,97 ----
+  #include <time.h>
+  #include "sh.h"
+  
++ #define INCL_NOPM
++ #define INCL_DOSPROCESS
++ #define INCL_DOSERRORS
++ #include <os2.h>
++ 
+  /*
+   * Structure of Malloced space to allow release of space nolonger required
+   * without having to know about it.
+***************
+*** 109,116 ****
+  static char	*Path	   = "PATH";
+  				/* Entry directory			*/
+  static char	*Start_directory = (char *)NULL;
+- 					/* Original Interrupt 24 address */
+- static void	(interrupt far *Orig_I24_V) (void);
+  #ifdef SIGQUIT
+  static void	(*qflag)(int) = SIG_IGN;
+  #endif
+--- 114,119 ----
+***************
+*** 128,133 ****
+--- 131,139 ----
+  static void	Convert_Backslashes (char *);
+  static void	Load_profiles (void);
+  static void	U2D_Path (void);
++ static void     dowaits(int);
++ 
++ unsigned int SW_intr;
+  
+  /*
+   * The main program starts here
+***************
+*** 307,312 ****
+--- 313,320 ----
+  	}
+  
+  	onecommand ();
++ 
++         dowaits(0);  /* wait for ending async. processes */
+      }
+  }
+  
+***************
+*** 460,465 ****
+--- 468,524 ----
+      }
+  }
+  
++ 
++ /*
++  * look for any ending childs
++  */
++ 
++ static void dowaits(int mode)
++ {
++   RESULTCODES rc;
++   PID pid;
++   char buffer[32];
++   USHORT res;
++   USHORT wmode = DCWW_NOWAIT;
++ 
++   for (;;)
++   {
++     res = DosCwait(DCWA_PROCESS, wmode, &rc, &pid, 0);
++ 
++     if ( mode && (res == ERROR_CHILD_NOT_COMPLETE) )
++     {
++       S_puts("(Waiting for childs)\n");
++       wmode = DCWW_WAIT;
++       continue;
++     }
++     else
++       if ( res )
++         break;
++ 
++     sprintf(buffer, "[%u] ", pid);
++     S_puts(buffer);
++ 
++     switch (rc.codeTerminate)
++     {
++     case TC_EXIT:
++       sprintf(buffer, "Done (%u)\n", rc.codeResult);
++       S_puts(buffer);
++       break;
++     case TC_HARDERROR:
++       S_puts("Terminated\n");
++       break;
++     case TC_TRAP:
++       sprintf(buffer, "Trap %d\n", rc.codeResult);
++       S_puts(buffer);
++       break;
++     case TC_KILLPROCESS:
++       S_puts("Killed\n");
++       break;
++     }
++   }
++ }
++ 
++ 
+  /*
+   * Terminate current environment with an error
+   */
+***************
+*** 480,490 ****
+--- 539,551 ----
+      if (execflg)
+  	fail ();
+  
++ #if 0
+      if (Orig_I24_V == (void (far *)())NULL)
+      {
+  	S_puts ("sh: ignoring attempt to leave lowest level shell\n");
+  	fail ();
+      }
++ #endif
+  
+  /* Clean up */
+  
+***************
+*** 495,500 ****
+--- 556,565 ----
+  
+      runtrap (0);
+  
++ /* wait for running bg processes */
++ 
++     dowaits(1);
++ 
+  /* Dump history on exit */
+  
+  #ifndef NO_HISTORY
+***************
+*** 504,513 ****
+  
+      closeall ();
+  
+- /* Clear swap file if necessary */
+- 
+-     Clear_Swap_File ();
+- 
+  /* If this is a command only - restore the directory because DOS doesn't
+   * and the user might expect it
+   */
+--- 569,574 ----
+***************
+*** 1439,1453 ****
+  void	put_prompt (s)
+  char	*s;
+  {
+!     struct dosdate_t 	d_date;
+!     struct dostime_t	d_time;
+      int			i;
+      char		buf[PATH_MAX + 4];
+  
+      last_prompt = s;		/* Save the Last prompt output		*/
+  
+!     _dos_gettime (&d_time);	/* Get the date and time in case	*/
+!     _dos_getdate (&d_date);
+  
+      while (*s)
+      {
+--- 1500,1514 ----
+  void	put_prompt (s)
+  char	*s;
+  {
+!     time_t ti;
+!     struct tm *tl;
+      int	i;
+      char buf[PATH_MAX + 4];
+  
+      last_prompt = s;		/* Save the Last prompt output		*/
+  
+!     time(&ti);
+!     tl = localtime(&ti);
+  
+      while (*s)
+      {
+***************
+*** 1475,1487 ****
+  			break;
+  
+  		    case 't':		    /* time	    */
+! 			sprintf (buf,"%.2d:%.2d", d_time.hour, d_time.minute);
+  			break;
+  
+  		    case 'd':		    /* date	    */
+  			sprintf (buf, "%.3s %.2d-%.2d-%.2d",
+! 				 &"SunMonTueWedThuFriSat"[d_date.dayofweek * 3],
+! 				 d_date.day, d_date.month, d_date.year % 100);
+  			break;
+  
+  		    case 'p':		    /* directory    */
+--- 1536,1548 ----
+  			break;
+  
+  		    case 't':		    /* time	    */
+! 			sprintf (buf,"%.2d:%.2d", tl -> tm_hour, tl -> tm_min);
+  			break;
+  
+  		    case 'd':		    /* date	    */
+  			sprintf (buf, "%.3s %.2d-%.2d-%.2d",
+! 				 &"SunMonTueWedThuFriSat"[tl -> tm_wday * 3],
+! 				 tl -> tm_mday, tl -> tm_mon, tl -> tm_year % 100);
+  			break;
+  
+  		    case 'p':		    /* directory    */
+***************
+*** 1494,1500 ****
+  			break;
+  
+  		    case 'v':		    /* version	    */
+! 			sprintf (buf, "MS-DOS %.2d:%.2d", _osmajor, _osminor);
+  			break;
+  		}
+  
+--- 1555,1561 ----
+  			break;
+  
+  		    case 'v':		    /* version	    */
+! 			sprintf (buf, "%.2d.%.2d", _osmajor, _osminor);
+  			break;
+  		}
+  
+***************
+*** 1552,1558 ****
+  {
+      register char	*s, *s1;
+      char		**ap;
+!     Var_List		*lset;
+      bool		l_rflag = FALSE;
+  
+  /* Patch the ctype table as a cheat */
+--- 1613,1619 ----
+  {
+      register char	*s, *s1;
+      char		**ap;
+!     Var_List		*lset, *init;
+      bool		l_rflag = FALSE;
+  
+  /* Patch the ctype table as a cheat */
+***************
+*** 1563,1571 ****
+   * address
+   */
+  
+-     Orig_I24_V = _dos_getvect (0x24);
+-     _dos_setvect (0x24, SW_Int24);
+- 
+  /* Load the environment into our structures */
+  
+      if ((ap = environ) != (char **)NULL)
+--- 1624,1629 ----
+***************
+*** 1642,1647 ****
+--- 1700,1708 ----
+  /* Set up home directory */
+  
+      if ((lset = lookup (home, TRUE))->value == null)
++       if ((init = lookup ("INIT", TRUE))->value != null)
++ 	setval (lset, init->value);
++       else
+  	setval (lset, C_dir->value);
+  
+      s_vstatus (lset, EXPORT);
+***************
+*** 1663,1669 ****
+  	setval (ifs, " \t\n");
+  
+      if (ps1->value == null)
+! 	setval (ps1, "$ ");
+  
+      if (ps2->value == null)
+  	setval (ps2, "> ");
+--- 1724,1730 ----
+  	setval (ifs, " \t\n");
+  
+      if (ps1->value == null)
+! 	setval (ps1, "%e$ ");
+  
+      if (ps2->value == null)
+  	setval (ps2, "> ");
+***************
+*** 1765,1772 ****
+  static void	Pre_Process_Argv (argv)
+  char		**argv;
+  {
+!     char	*ocl = (char far *)((((long)_psp) << 16) + 0x081L);
+  
+  
+  /* Check for these options */
+  
+--- 1826,1836 ----
+  static void	Pre_Process_Argv (argv)
+  char		**argv;
+  {
+!     extern      char far *_pgmptr;
+!     char	*ocl = _pgmptr;
+  
++     ocl = strchr(ocl, 0) + 1;
++     ocl = strchr(ocl, 0) + 1;
+  
+  /* Check for these options */
+  
+***************
+*** 1834,1839 ****
+--- 1898,1904 ----
+  {
+      char	*name;
+      int		f;
++     char        prof[128], *env;
+  
+  /* Set up home profile */
+  
+***************
+*** 1852,1857 ****
+--- 1917,1936 ----
+      {
+  	PUSHIO (afile, remap (f), filechar);
+      }
++ 
++     if ( (env = getenv("INIT")) != NULL )
++       if ((f = O_for_execute (strcat(strcpy(prof, env), "/profile"),
++                               (char **)NULL, (int *)NULL)) >= 0)
++       {
++           PUSHIO (afile, remap (f), filechar);
++       }
++ 
++     if ( (env = getenv("HOME")) != NULL )
++       if ((f = O_for_execute (strcat(strcpy(prof, env), "/profile"),
++                               (char **)NULL, (int *)NULL)) >= 0)
++       {
++           PUSHIO (afile, remap (f), filechar);
++       }
+  }
+  
+  /*
+diff -cbBw sh-dos/sh2.c sh-os2/sh2.c
+*** sh-dos/sh2.c	Mon May 21 20:12:06 1990
+--- sh-os2/sh2.c	Thu Jul 05 19:55:04 1990
+***************
+*** 36,41 ****
+--- 36,42 ----
+  
+  #include <sys/types.h>
+  #include <stddef.h>
++ #include <stdio.h>
+  #include <signal.h>
+  #include <errno.h>
+  #include <setjmp.h>
+diff -cbBw sh-dos/sh3.c sh-os2/sh3.c
+*** sh-dos/sh3.c	Thu Jul 05 19:50:26 1990
+--- sh-os2/sh3.c	Sat Aug 04 18:29:58 1990
+***************
+*** 97,103 ****
+  #include <sys/stat.h>
+  #include <stdio.h>
+  #include <process.h>
+- #include <dos.h>
+  #include <signal.h>
+  #include <errno.h>
+  #include <setjmp.h>
+--- 97,102 ----
+***************
+*** 107,117 ****
+  #include <stdlib.h>
+  #include <fcntl.h>
+  #include <limits.h>
+! #include <dirent.h>
+  #include <ctype.h>
+  
+  #include "sh.h"
+  
+  /* static Function and string declarations */
+  
+  static int	forkexec (C_Op *, int, int, int, char **);
+--- 106,120 ----
+  #include <stdlib.h>
+  #include <fcntl.h>
+  #include <limits.h>
+! #include <dir.h>
+  #include <ctype.h>
+  
+  #include "sh.h"
+  
++ #define INCL_NOPM
++ #define INCL_DOS
++ #include <os2.h>
++ 
+  /* static Function and string declarations */
+  
+  static int	forkexec (C_Op *, int, int, int, char **);
+***************
+*** 122,133 ****
+  static int	rexecve (char *, char **, char **, bool);
+  static int	Execute_program (char *, char **, char **, bool);
+  static int	S_spawnve (char *, char **, char **);
+- static bool	Get_EMS_Driver (void);
+- static bool	Get_XMS_Driver (void);
+- static bool	EMS_error (char *, int);
+- static int	EMS_Close (void);
+- static bool	XMS_error (char *, int);
+- static int	XMS_Close (void);
+  static int	build_command_line (char *, char **, char **);
+  static int	setstatus (int);
+  static bool	Check_for_bat_file (char *);
+--- 125,130 ----
+***************
+*** 134,145 ****
+  static size_t	white_space_len (char *, bool *);
+  static char	*Gen_Full_Path_Name (char *);
+  
+  static char	*AE2big = "arg/env list too big";
+- static char	*EMS_emsg = "Warning: EMS Error (%x)\n";
+- static char	*XMS_emsg = "Warning: XMS Error (%x)\n";
+  			/* Extended Command line processing file name	*/
+  static char		*Extend_file = (char *)NULL;
+- static char		*Swap_File = (char *)NULL;	/* Swap file	*/
+  
+  /*
+   * execute tree recursively
+--- 131,141 ----
+  static size_t	white_space_len (char *, bool *);
+  static char	*Gen_Full_Path_Name (char *);
+  
++ static int      spawnmode = P_WAIT;
++ 
+  static char	*AE2big = "arg/env list too big";
+  			/* Extended Command line processing file name	*/
+  static char		*Extend_file = (char *)NULL;
+  
+  /*
+   * execute tree recursively
+***************
+*** 163,168 ****
+--- 159,165 ----
+      int			Local_depth;		/* Save local values	*/
+      int			Local_areanum;
+      int			rv = 0;
++     int                 readp, writep;
+  
+  /* End of tree ? */
+  
+***************
+*** 213,219 ****
+  		Break_List  = (Break_C *)NULL;
+  		bc.nextlev  = SShell_List;
+  		SShell_List = &bc;
+! 		rv = forkexec (t, pin, pout, act, wp);
+  	    }
+  
+  /* Restore the original environment */
+--- 210,217 ----
+  		Break_List  = (Break_C *)NULL;
+  		bc.nextlev  = SShell_List;
+  		SShell_List = &bc;
+! 		/* rv = forkexec (t, pin, pout, act, wp); wrong! */
+! 		rv = execute (t->left, pin, pout, act);
+  	    }
+  
+  /* Restore the original environment */
+***************
+*** 234,251 ****
+  	    break;
+  
+  	case TPIPE:			/* Pipe processing		*/
+- 	    if ((rv = openpipe ()) < 0)
+- 		break;
+  
+  /* Create pipe, execute command, reset pipe, execute the other side, close
+   * the pipe and fini
+   */
+! 
+  	    localpipe = remap (rv);
+  	    execute (t->left, pin, localpipe, 0);
+  	    lseek (localpipe, 0L, SEEK_SET);
+  	    rv = execute (t->right, localpipe, pout, 0);
+  	    closepipe (localpipe);
+  	    break;
+  
+  	case TLIST:			/* Entries in a for statement	*/
+--- 232,280 ----
+  	    break;
+  
+  	case TPIPE:			/* Pipe processing		*/
+  
+  /* Create pipe, execute command, reset pipe, execute the other side, close
+   * the pipe and fini
+   */
+! 	 /* old DOS version:
+!             if ((rv = openpipe ()) < 0)
+! 		break;
+  	    localpipe = remap (rv);
+  	    execute (t->left, pin, localpipe, 0);
+  	    lseek (localpipe, 0L, SEEK_SET);
+  	    rv = execute (t->right, localpipe, pout, 0);
+  	    closepipe (localpipe);
++          */
++ 
++             if (DosMakePipe((PHFILE) &readp, (PHFILE) &writep, 0))
++                 break;
++ 	    readp = remap (readp);
++ 	    writep = remap (writep);
++             DosSetFHandState(readp, OPEN_FLAGS_NOINHERIT);
++ 	    DosSetFHandState(writep, OPEN_FLAGS_NOINHERIT);
++ 
++             if ( spawnmode == P_WAIT )
++             {
++               spawnmode = P_NOWAITO;
++ 	      execute (t->left, pin, writep, 0);
++               close(writep);
++               spawnmode = P_NOWAIT;
++ 	      rv = execute (t->right, readp, pout, 0);
++               close(readp);
++               spawnmode = P_WAIT;
++               cwait(&rv, rv, WAIT_GRANDCHILD);
++             }
++             else
++             {
++               rv = spawnmode;
++               spawnmode = P_NOWAITO;
++ 	      execute (t->left, pin, writep, 0);
++               close(writep);
++               spawnmode = rv;
++ 	      rv = execute (t->right, readp, pout, 0);
++               close(readp);
++             }
++ 
+  	    break;
+  
+  	case TLIST:			/* Entries in a for statement	*/
+***************
+*** 253,262 ****
+  	    rv = execute (t->right, pin, pout, 0);
+  	    break;
+  
+! 	case TASYNC:			/* Async - not supported	*/
+! 	    rv = -1;
+  	    S_puts ("sh: Async commands not supported\n");
+  	    setstatus (rv);
+  	    break;
+  
+  	case TOR:			/* || and &&			*/
+--- 282,299 ----
+  	    rv = execute (t->right, pin, pout, 0);
+  	    break;
+  
+! 	case TASYNC:
+! 	 /* rv = -1;
+  	    S_puts ("sh: Async commands not supported\n");
+  	    setstatus (rv);
++          */
++             spawnmode = P_NOWAIT;
++ 	    rv = execute (t->left, pin, pout, 0);
++             spawnmode = P_WAIT;
++             S_puts("[");
++             S_puts(putn(rv));
++             S_puts("]\n");
++             setval (lookup ("!", TRUE), putn (rv));
+  	    break;
+  
+  	case TOR:			/* || and &&			*/
+***************
+*** 439,445 ****
+  {
+      unsigned int	dummy;
+  
+!     _dos_setdrive (tolower(*path) - 'a' + 1, &dummy);
+  
+      if (chdir (&path[2]) != 0)
+      {
+--- 476,482 ----
+  {
+      unsigned int	dummy;
+  
+!     DosSelectDisk(tolower(*path) - 'a' + 1);
+  
+      if (chdir (&path[2]) != 0)
+      {
+***************
+*** 469,474 ****
+--- 506,512 ----
+      char	**owp = wp;
+      bool	spawn = FALSE;
+      Fun_Ops	*fop;
++     char        *cmdcom = NULL;
+  
+      if (t->type == TCOM)
+      {
+***************
+*** 494,501 ****
+  
+  /* Check for built in commands */
+  
+! 	else if (cp != (char *)NULL)
+! 	    shcom = inbuilt (cp);
+      }
+  
+  /* Unix fork simulation? */
+--- 532,541 ----
+  
+  /* Check for built in commands */
+  
+! 	else
+!           if (cp != (char *)NULL)
+! 	    if ( (shcom = inbuilt (cp)) == NULL )
+!               cmdcom = cmd_internal(cp);
+      }
+  
+  /* Unix fork simulation? */
+***************
+*** 634,639 ****
+--- 674,682 ----
+  
+  /* Ok - execute the program */
+  
++     if (cmdcom)
++       return restore_std (rexecve (NULL, wp, makenv (), spawn), TRUE);
++     else
+        return restore_std (rexecve (wp[0], wp, makenv (), spawn), TRUE);
+  }
+  
+***************
+*** 860,867 ****
+      int			nargc = 0;		/* # script args	*/
+      char		*p_name;		/* Program name		*/
+      int			i;
+-     union REGS		r;
+  
+  /* If the environment is null - It is too big - error */
+  
+      if (envp == (char **)NULL)
+--- 903,917 ----
+      int			nargc = 0;		/* # script args	*/
+      char		*p_name;		/* Program name		*/
+      int			i;
+  
++ /* Count the number of arguments to the program in case of shell script or
++  * bat file
++  */
++ 
++     while (v[argc++] != (char *)NULL);
++ 
++     ++argc;				/* Including the null		*/
++ 
+  /* If the environment is null - It is too big - error */
+  
+      if (envp == (char **)NULL)
+***************
+*** 870,886 ****
+      else if ((p_name = getcell (FFNAME_MAX)) == (char *)NULL)
+  	em = strerror (ENOMEM);
+  
+!     else
+      {
+! 
+! /* Count the number of arguments to the program in case of shell script or
+!  * bat file
+!  */
+! 
+! 	while (v[argc++] != (char *)NULL);
+  
+! 	++argc;				/* Including the null		*/
+  
+  /* Start off on the search path for the executable file */
+  
+  	sp = (any ('/', c) || (*(c + 1) == ':')) ? null : path->value;
+--- 920,945 ----
+      else if ((p_name = getcell (FFNAME_MAX)) == (char *)NULL)
+  	em = strerror (ENOMEM);
+  
+!     else if ( c == NULL )
+      {
+! /* cmd.exe interal command */
+  
+!       if ((new_argv = (char **) getcell (sizeof(char *) * (argc + 2)))
+!  	      == NULL)
+!   	em = strerror (ENOMEM);
+!       else
+!       {
+!         memcpy (&new_argv[2], &v[0], sizeof(char *) * argc);
+!         new_argv[0] = lookup ("COMSPEC", FALSE)->value;
+!         new_argv[1] = "/c";
+!         res = rexecve (new_argv[0], new_argv, envp, d_flag);
+!         DELETE (new_argv);
+! 	return res;
+!       }
+!     }
+  
++     else
++     {
+  /* Start off on the search path for the executable file */
+  
+  	sp = (any ('/', c) || (*(c + 1) == ':')) ? null : path->value;
+***************
+*** 940,953 ****
+  		    {
+  			new_argv[0] = lookup ("COMSPEC", FALSE)->value;
+  			new_argv[1] = "/c";
+- 
+- /* Get the switch character */
+- 
+- 			r.x.ax = 0x3700;
+- 			intdos (&r, &r);
+- 
+- 			if (r.h.al == 0)
+- 			    *new_argv[1] = (char)(r.h.dl);
+  		    }
+  
+  /* Stick in the pre-fix arguments */
+--- 999,1004 ----
+***************
+*** 1044,1052 ****
+  	++cp;
+  
+      if ((cp = strrchr (cp, '.')) == (char *)NULL)
+! 	strcat (local_path, ".bat");
+  
+!     else if (stricmp (cp, ".bat") != 0)
+      {
+  	DELETE (local_path);
+  	return FALSE;
+--- 1095,1103 ----
+  	++cp;
+  
+      if ((cp = strrchr (cp, '.')) == (char *)NULL)
+! 	strcat (local_path, BATCHEXT);
+  
+!     else if (stricmp (cp, BATCHEXT) != 0)
+      {
+  	DELETE (local_path);
+  	return FALSE;
+***************
+*** 1157,1167 ****
+  char		**parms;
+  char		**envp;
+  {
+!     unsigned int	c_cur = (unsigned int)(_psp - 1);
+!     unsigned int	size = 0;
+!     char		*ep, *ep1;
+      int			res, serrno;
+-     struct MCB_list	*mp = (struct MCB_list *)((unsigned long)c_cur << 16L);
+  
+  /* Check to see if the file exists */
+  
+--- 1208,1215 ----
+  char		**parms;
+  char		**envp;
+  {
+!     char		*ep, *ep1, path_line[255];
+      int			res, serrno;
+  
+  /* Check to see if the file exists */
+  
+***************
+*** 1198,1578 ****
+      else if (access (path_line, F_OK) != 0)
+  	return -1;
+  
+! /* Process the command line.  If no swapping, we have executed the program */
+! 
+!     res = build_command_line (path_line, parms, envp);
+! 
+!     if ((Swap_Mode == SWAP_OFF) || res)
+! 	return res;
+! 
+! /* Find the length of the swap area */
+! 
+!     while ((mp = (struct MCB_list *)((unsigned long)c_cur << 16L))->MCB_type
+! 	    == MCB_CON)
+!     {
+! 	if ((mp->MCB_pid != _psp) && (mp->MCB_pid != 0) &&
+! 	    (mp->MCB_type != MCB_END))
+! 	{
+! 	    Clear_Extended_File ();
+! 	    print_error ("Fatal: Memory chain corrupt\n");
+! 	    return -1;
+! 	}
+! 
+! 	c_cur += (mp->MCB_len + 1);
+! 	size += mp->MCB_len + 1;
+!     }
+! 
+! /*
+!  * Convert swap size from paragraphs to 16K blocks.
+!  */
+! 
+!     if (size == 0)
+! 	size = mp->MCB_len + 1;
+! 
+!     SW_Blocks = (size / 0x0400) + 1;
+!     SW_SBlocks = ((size - etext + _psp - 1) / 0x0400) + 1;
+! 
+! /* OK Now we've set up the FCB's, command line and opened the swap file.
+!  * Get some sys info for the swapper and execute my little assembler
+!  * function to swap us out
+!  */
+! 
+! /* Save the interrupt 0 and 23 addresses */
+! 
+!     SW_I0_V  = _dos_getvect (0x00);
+!     SW_I23_V = _dos_getvect (0x23);
+! 
+! /* Ok - 3 methods of swapping */
+! 
+! /* If expanded memory - try that */
+! 
+!     if ((Swap_Mode & SWAP_EXPAND) && Get_EMS_Driver ())
+!     {
+! 	int	cr;
+! 
+! 	SW_Mode = 3;			/* Set Expanded memory swap	*/
+! 
+! 	res = SA_spawn (envp);
+! 	cr = EMS_Close ();		/* Close EMS			*/
+! 
+! 	if ((res != -2) && cr)		/* Report Close error ?		*/
+! 	{
+! 	    res = -2;
+! 	    errno = cr;
+! 	}
+! 
+! 	if (res == -2)
+! 	    EMS_error ("Expanded memory swap failed (%x)\n", errno);
+! 
+! 	else
+! 	{
+! 	    Clear_Extended_File ();
+! 	    return res;
+! 	}
+! 
+! /* Failed - disabled */
+! 
+! 	Swap_Mode &= (~SWAP_EXPAND);
+!     }
+! 
+!     if ((Swap_Mode & SWAP_EXTEND) && Get_XMS_Driver ())
+!     {
+! 	int	cr;
+! 
+! /* Set Extended memory or XMS driver */
+! 
+! 	SW_Mode = (SW_fp == -1) ? 2 : 4;
+! 
+! 	res = SA_spawn (envp);
+! 	cr = XMS_Close ();		/* Close XMS			*/
+! 
+! 	if ((res != -2) && cr)		/* Report Close error ?		*/
+! 	{
+! 	    res = -2;
+! 	    errno = cr;
+! 	}
+! 
+! 	if (res == -2)
+! 	    XMS_error ("Extended memory swap failed (%x)\n", errno);
+! 
+! 	else
+! 	{
+! 	    Clear_Extended_File ();
+! 	    return res;
+! 	}
+! 
+! /* Failed - disabled */
+! 
+! 	Swap_Mode &= (~SWAP_EXTEND);
+!     }
+! 
+! /* Try the disk if available */
+! 
+!     if (Swap_Mode & SWAP_DISK)
+!     {
+! 	SW_Pwrite = 0;
+! 
+! 	if (Swap_File == (char *)NULL)
+! 	    SW_fp = S_open (FALSE, (ep = g_tempname ()), O_SMASK, 0600);
+! 
+! 	else
+! 	{
+! 	    SW_fp = S_open (FALSE, Swap_File, O_SaMASK);
+! 	    SW_Pwrite = 1;
+! 	}
+! 
+! 	if (SW_fp < 0)
+! 	{
+! 	    Clear_Swap_File ();
+! 	    Swap_Mode &= (~SWAP_DISK);
+! 	    print_error ("No Swap files\n");
+! 	    errno = ENOSPC;
+! 	    return -1;
+! 	}
+! 
+! /* Save the swap file name ? */
+! 
+! 	if ((Swap_File == (char *)NULL) &&
+! 	    ((Swap_File = strsave (ep, 0)) == null))
+! 		Swap_File = (char *)NULL;
+! 
+! 	SW_Mode = 1;			/* Set Disk file swap		*/
+! 
+! /* Seek to correct location */
+! 
+! 	if (SW_Pwrite)
+! 	{
+!     	    long	loc = (long)(etext - _psp + 1) * 16L;
+! 
+! 	    if (lseek (SW_fp, loc, SEEK_SET) != loc)
+! 	    {
+! 		serrno = errno;
+! 		S_close (SW_fp, TRUE);
+! 		Clear_Swap_File ();
+! 		Swap_Mode &= (~SWAP_DISK);
+! 		print_error ("No Swap files\n");
+! 		errno = serrno;
+! 		return -1;
+! 	    }
+! 	}
+! 
+! /* Execute the program */
+! 
+! 	res = SA_spawn (envp);
+! 
+! /* Close the swap file and extended command line files */
+! 
+! 	Clear_Extended_File ();
+! 	serrno = errno;
+! 	S_close (SW_fp, TRUE);
+! 	errno = serrno;
+! 
+! /* Check for out of swap space */
+! 
+! 	if (res == -2)
+! 	{
+! 	    Clear_Swap_File ();
+! 	    Swap_Mode &= (~SWAP_DISK);
+! 	    print_warn ("Swap file write failed\n");
+! 	    errno = ENOSPC;
+! 	    res = -1;
+! 	}
+! 
+! /* Return the result */
+! 
+! 	return res;
+!     }
+! 
+! /* No swapping available - give up */
+! 
+!     Clear_Extended_File ();
+!     print_error ("All Swapping methods failed\n");
+!     errno = ENOSPC;
+!     return -1;
+! }
+! 
+! /* Get the XMS Driver information */
+! 
+! static bool	Get_XMS_Driver ()
+! {
+!     union REGS		or;
+!     struct SREGS	sr;
+!     unsigned int	SW_EMsize;	/* Number of extend memory blks	*/
+! 
+! /* Get max Extended memory pages, and convert to 16K blocks.  If Extended
+!  * memory swapping disabled, set to zero
+!  */
+! 
+!     SW_fp = -1;				/* Set EMS/XMS handler not	*/
+! 					/* defined			*/
+! 
+! /* Is a XMS memory driver installed */
+! 
+!     or.x.ax = 0x4300;
+!     int86 (0x2f, &or, &or);
+! 
+!     if (or.h.al != 0x80)
+!     {
+! 	or.x.ax = 0x8800;
+! 	int86 (0x15, &or, &or);
+! 	SW_EMsize = or.x.ax / 16;
+! 
+! 	if ((SW_EMsize <= SW_Blocks) ||
+! 	     ((SW_EMstart - 0x100000L +
+! 	      ((long)(SW_Blocks - SW_EMsize) * 16L * 1024L)) < 0L))
+! 	    return XMS_error ("Not enough Extended memory for swap\n", 0);
+! 
+! 	else
+! 	    return TRUE;
+!     }
+! 
+! /* Get the driver interface */
+! 
+!     or.x.ax = 0x4310;
+!     int86x (0x2f, &or, &or, &sr);
+!     SW_XMS_Driver = (void (*)())((unsigned long)(sr.es) << 16L | or.x.bx);
+! 
+!     if ((SW_XMS_Gversion () & 0xff00) != 0x0200)
+! 	return XMS_error ("Warning: XMS Version != 2\n", 0);
+! 
+!     else if ((SW_fp = SW_XMS_Allocate (SW_Blocks * 16)) == -1)
+! 	return XMS_error (XMS_emsg, errno);
+! 
+!     return TRUE;
+! }
+! 
+! /* Get the EMS Driver information */
+! 
+! static bool	Get_EMS_Driver ()
+! {
+!     union REGS		or;
+!     struct SREGS	sr;
+!     char		*sp;
+! 
+! /* Set EMS/XMS handler not defined */
+! 
+!     SW_fp = -1;
+! 
+!     or.x.ax = 0x3567;
+!     intdosx (&or, &or, &sr);
+! 
+!     sp = (char *)((unsigned long)(sr.es) << 16L | 10L);
+! 
+! /* If not there - disable */
+! 
+!     if (memcmp ("EMMXXXX0", sp, 8) != 0)
+! 	return EMS_error ("Warning: EMS not available\n", 0);
+! 
+!     or.h.ah = 0x40;			/* Check status			*/
+!     int86 (0x67, &or, &or);
+! 
+!     if (or.h.ah != 0)
+! 	return EMS_error (EMS_emsg, or.h.ah);
+! 
+! /* Check version greater than 3.2 */
+! 
+!     or.h.ah = 0x46;
+!     int86 (0x67, &or, &or);
+! 
+!     if ((or.h.ah != 0) || (or.h.al < 0x32))
+! 	return EMS_error ("Warning: EMS Version < 3.2\n", 0);
+! 
+! /*  get page frame address */
+! 
+!     or.h.ah = 0x41;
+!     int86 (0x67, &or, &or);
+! 
+!     if (or.h.ah != 0)
+! 	return EMS_error (EMS_emsg, or.h.ah);
+! 
+!     SW_EMSFrame = or.x.bx;		/* Save the page frame		*/
+! 
+! /* Get the number of pages required */
+! 
+!     or.h.ah = 0x43;
+!     or.x.bx = SW_Blocks;
+!     int86 (0x67, &or, &or);
+! 
+!     if (or.h.ah != 0)
+! 	return EMS_error (EMS_emsg, or.h.ah);
+! 
+! /* Save the EMS Handler */
+! 
+!     SW_fp = or.x.dx;
+! 
+! /* save EMS page map */
+! 
+!     or.h.ah = 0x47;
+!     or.x.dx = SW_fp;
+!     int86 (0x67, &or, &or);
+! 
+!     return (or.h.ah != 0) ? EMS_error (EMS_emsg, or.h.ah) : TRUE;
+! }
+! 
+! /* Print EMS error message */
+! 
+! static bool	EMS_error (s, v)
+! char		*s;
+! int		v;
+! {
+!     print_warn (s, v);
+!     Swap_Mode &= ~(SWAP_EXPAND);
+!     EMS_Close ();
+!     return FALSE;
+! }
+! 
+! /* Print XMS error message */
+! 
+! static bool	XMS_error (s, v)
+! char		*s;
+! int		v;
+! {
+!     print_warn (s, v);
+!     Swap_Mode &= ~(SWAP_EXTEND);
+!     XMS_Close ();
+!     return FALSE;
+! }
+! 
+! /* If the XMS handler is defined - close it */
+! 
+! static int	XMS_Close ()
+! {
+!     int		res = 0;
+! 
+! /* Release XMS page */
+! 
+!     if (SW_fp != -1)
+! 	res = SW_XMS_Free (SW_fp);
+! 
+!     SW_fp = -1;
+!     return res;
+! }
+! 
+! /* If the EMS handler is defined - close it */
+! 
+! static int	EMS_Close ()
+! {
+!     union REGS		or;
+!     int			res = 0;
+! 
+!     if (SW_fp == -1)
+! 	return 0;
+! 
+! /* Restore EMS page */
+! 
+!     or.h.ah = 0x48;
+!     or.x.dx = SW_fp;
+!     int86 (0x67, &or, &or);
+! 
+!     if (or.h.ah != 0)
+! 	res = or.h.al;
+! 
+!     or.h.ah = 0x45;
+!     or.x.dx = SW_fp;
+!     int86 (0x67, &or, &or);
+  
+!     SW_fp = -1;
+!     return (res) ? res : or.h.ah;
+  }
+  
+  /* Set up command line.  If the EXTENDED_LINE variable is set, we create
+--- 1246,1254 ----
+      else if (access (path_line, F_OK) != 0)
+  	return -1;
+  
+! /* Process the command line. */
+  
+!     return build_command_line (path_line, parms, envp);
+  }
+  
+  /* Set up command line.  If the EXTENDED_LINE variable is set, we create
+***************
+*** 1595,1600 ****
+--- 1271,1278 ----
+      bool		found;
+      char		*ep;
+      char		*new_args[3];
++     char                cmd_line[CMD_LINE_MAX];
++     void 		(*save_signal)(int);
+  
+  /* Translate process name to MSDOS format */
+  
+***************
+*** 1686,1692 ****
+  
+  /* Correctly terminate cmd_line in no swap mode */
+  
+- 	    if (Swap_Mode != SWAP_OFF)
+  		cmd_line[cmd_line[0] + 2] = '\r';
+  
+  /* If the name in the file is in upper case - use \ for separators */
+--- 1364,1369 ----
+***************
+*** 1696,1711 ****
+  
+  /* OK we are ready to execute */
+  
+- 	    if (Swap_Mode == SWAP_OFF)
+- 	    {
+  		new_args[0] = *argv;
+  		new_args[1] = &cmd_line[1];
+  		new_args[2] = (char *)NULL;
+- 		return spawnve (P_WAIT, path, new_args, envp);
+- 	    }
+  
+! 	    else
+! 		return 0;
+  	}
+      }
+  
+--- 1373,1386 ----
+  
+  /* OK we are ready to execute */
+  
+  	    new_args[0] = *argv;
+  	    new_args[1] = &cmd_line[1];
+  	    new_args[2] = (char *)NULL;
+  
+!             save_signal = signal (SIGINT, SIG_DFL);
+! 	    res = spawnve (spawnmode, path, new_args, envp);
+!             signal (SIGINT, save_signal);
+!             return res;
+  	}
+      }
+  
+***************
+*** 1745,1753 ****
+  
+      cmd_line[0] = (char)res;
+  
+! /* If swapping disabled - just execute it */
+  
+!     return (Swap_Mode == SWAP_OFF) ? spawnve (P_WAIT, path, argv, envp) : 0;
+  }
+  
+  /* Check string for white space */
+--- 1420,1431 ----
+  
+      cmd_line[0] = (char)res;
+  
+! /* Just execute it */
+  
+!     save_signal = signal (SIGINT, SIG_DFL);
+!     res = spawnve (spawnmode, path, argv, envp);
+!     signal (SIGINT, save_signal);
+!     return res;
+  }
+  
+  /* Check string for white space */
+***************
+*** 1784,1802 ****
+      Extend_file = (char *)NULL;
+  }
+  
+- /* Clear Disk swap file file */
+- 
+- void	Clear_Swap_File ()
+- {
+-     if (Swap_File != (char *)NULL)
+-     {
+- 	unlink (Swap_File);
+- 	DELETE (Swap_File);
+-     }
+- 
+-     Swap_File = (char *)NULL;
+- }
+- 
+  /* Convert the executable path to the full path name */
+  
+  static char	*Gen_Full_Path_Name (path)
+--- 1462,1467 ----
+***************
+*** 1830,1838 ****
+  
+  /* Switch drives and get the path of the other drive */
+  
+! 	    _dos_setdrive (tolower (*path) - 'a' + 1, &dummy);
+  	    getcwd (npath, PATH_MAX + 3);
+! 	    _dos_setdrive (tolower (*cpath) - 'a' + 1, &dummy);
+  	 }
+      }
+  
+--- 1495,1503 ----
+  
+  /* Switch drives and get the path of the other drive */
+  
+! 	    DosSelectDisk(tolower (*path) - 'a' + 1);
+  	    getcwd (npath, PATH_MAX + 3);
+! 	    DosSelectDisk(tolower (*cpath) - 'a' + 1);
+  	 }
+      }
+  
+***************
+*** 1861,1867 ****
+  /* Change to the directory containing the executable */
+  
+  	if (*(path + 1) == ':')
+! 	    _dos_setdrive (tolower (*path) - 'a' + 1, &dummy);
+  
+  /* Save the current directory on this drive */
+  
+--- 1526,1532 ----
+  /* Change to the directory containing the executable */
+  
+  	if (*(path + 1) == ':')
+! 	    DosSelectDisk(tolower (*path) - 'a' + 1);
+  
+  /* Save the current directory on this drive */
+  
+***************
+*** 1882,1888 ****
+  
+  /* Restore our original directory */
+  
+! 	_dos_setdrive (tolower (*cpath) - 'a' + 1, &dummy);
+  
+  	if (chdir (cpath) < 0)
+  	    return (char *)NULL;
+--- 1547,1553 ----
+  
+  /* Restore our original directory */
+  
+! 	DosSelectDisk(tolower (*cpath) - 'a' + 1);
+  
+  	if (chdir (cpath) < 0)
+  	    return (char *)NULL;
+diff -cbBw sh-dos/sh4.c sh-os2/sh4.c
+*** sh-dos/sh4.c	Thu Jul 05 19:50:28 1990
+--- sh-os2/sh4.c	Sat Aug 04 16:22:18 1990
+***************
+*** 45,59 ****
+  #include <signal.h>
+  #include <errno.h>
+  #include <setjmp.h>
+- #include <dirent.h>
+  #include <string.h>
+  #include <stdlib.h>
+  #include <unistd.h>
+  #include <ctype.h>
+- #include <bios.h>
+- #include <dos.h>
+  #include "sh.h"
+  
+  /*
+   * ${}, `command`, blank interpretation, quoting and file name expansion
+   */
+--- 45,62 ----
+  #include <signal.h>
+  #include <errno.h>
+  #include <setjmp.h>
+  #include <string.h>
+  #include <stdlib.h>
++ #include <stdio.h>
+  #include <unistd.h>
++ #include <dir.h>
+  #include <ctype.h>
+  #include "sh.h"
+  
++ #define INCL_NOPM
++ #define INCL_DOS
++ #include <os2.h>
++ 
+  /*
+   * ${}, `command`, blank interpretation, quoting and file name expansion
+   */
+***************
+*** 853,859 ****
+      register char	*np, *cp;
+      char		*name, *gp, *dp;
+      DIR			*dn;
+!     struct dirent	*d_ce;
+      char		dname[NAME_MAX + 1];
+      struct stat		dbuf;
+  
+--- 856,862 ----
+      register char	*np, *cp;
+      char		*name, *gp, *dp;
+      DIR			*dn;
+!     struct direct	*d_ce;
+      char		dname[NAME_MAX + 1];
+      struct stat		dbuf;
+  
+***************
+*** 898,904 ****
+  
+  /* Scan for matches */
+  
+!     while ((d_ce = readdir (dn)) != (struct dirent *)NULL)
+      {
+  	if ((*(strcpy (dname, d_ce->d_name)) == '.') && (*gp != '.'))
+  	    continue;
+--- 901,907 ----
+  
+  /* Scan for matches */
+  
+!     while ((d_ce = readdir (dn)) != (struct direct *)NULL)
+      {
+  	if ((*(strcpy (dname, d_ce->d_name)) == '.') && (*gp != '.'))
+  	    continue;
+***************
+*** 1105,1153 ****
+  char		*start;
+  {
+      unsigned int	c_drive;	/* Current drive		*/
+-     unsigned int	m_drive;	/* Max drive			*/
+-     unsigned int	s_drive;	/* Selected drive		*/
+-     unsigned int	x_drive, y_drive;	/* Dummies		*/
+      char		*multi;		/* Multi-drive flag		*/
+      static char		*t_drive = "x";
+      char		*new_pattern;
+  
+  /* Search all drives ? */
+  
+      if ((multi = Check_Multi_Drive (pattern)) != (char *)NULL)
+      {
+! 	_dos_getdrive (&c_drive);	/* Get number of drives		*/
+! 	_dos_setdrive (c_drive, &m_drive);
+! 	new_pattern = space (strlen (multi) + 2);
+  
+  	strcpy (new_pattern + 1, multi);
+- 	*multi = 0;
+  
+! 	for (s_drive = 1; s_drive <= m_drive; ++s_drive)
+  	{
+! 	    _dos_setdrive (s_drive, &x_drive);
+! 	    _dos_getdrive (&y_drive);
+! 	    _dos_setdrive (c_drive, &x_drive);
+! 
+! /* Check to see if the second diskette drive is really there */
+! 
+! 	    if (((_bios_equiplist () & 0x00c0) == 0x0000) && (s_drive == 2))
+! 		continue;
+! 
+! /* If the drive exists and is in our list - process it */
+! 
+! 	    *t_drive = (char)(s_drive + 'a' - 1);
+  
+! 	    if ((y_drive == s_drive) && gmatch (t_drive, pattern, TRUE))
+  	    {
+  		*new_pattern = *t_drive;
+! 		globname (new_pattern, &new_pattern[2]);
+  	    }
+  	}
+  
+  /* Restore and delete space */
+  
+- 	*multi = ':';
+  	DELETE (new_pattern);
+      }
+  
+--- 1108,1146 ----
+  char		*start;
+  {
+      unsigned int	c_drive;	/* Current drive		*/
+      char		*multi;		/* Multi-drive flag		*/
+      static char		*t_drive = "x";
+      char		*new_pattern;
++     ULONG               l_map;
++     int                 cnt;
+  
+  /* Search all drives ? */
+  
+      if ((multi = Check_Multi_Drive (pattern)) != (char *)NULL)
+      {
+!         DosQCurDisk((PUSHORT) &c_drive, &l_map);
+  
++ 	new_pattern = space (strlen (multi) + 2);
+  	strcpy (new_pattern + 1, multi);
+  
+!         for ( cnt = 1; cnt <= 26; cnt++, l_map >>= 1 )
+!           if ( l_map & 1L )
+  	  {
+! 	      *t_drive = (char)(cnt + 'a' - 1);
+!               *multi = 0;
+  
+! 	      if (gmatch (t_drive, pattern, TRUE))
+  	      {
+  	  	*new_pattern = *t_drive;
+!                 *multi = ':';
+! 	  	globname (new_pattern, strchr(new_pattern,0));
+  	      }
++               else
++                 *multi = ':';
+  	  }
+  
+  /* Restore and delete space */
+  
+  	DELETE (new_pattern);
+      }
+  
+diff -cbBw sh-dos/sh6.c sh-os2/sh6.c
+*** sh-dos/sh6.c	Thu Jul 05 19:50:30 1990
+--- sh-os2/sh6.c	Sat Aug 04 13:45:18 1990
+***************
+*** 69,76 ****
+  #include <string.h>
+  #include "sh.h"
+  
+! static char	*Copy_Right1 = "MS-DOS SH Version 1.6.2 - %s (DOS %d.%d)\n";
+  static char	*Copy_Right2 = "Copyright (c) Data Logic Ltd and Charles Forsyth 1990\n";
+  char		**dolv;		/* Parameter array			*/
+  int		dolc;		/* Number of entries in parameter array	*/
+  int		exstat;		/* Exit status				*/
+--- 69,78 ----
+  #include <string.h>
+  #include "sh.h"
+  
+! static char	*Copy_Right1 = "\nSH Version 1.6.2 - %s (OS/2 %d.%02d)\n";
+  static char	*Copy_Right2 = "Copyright (c) Data Logic Ltd and Charles Forsyth 1990\n";
++ static char	*Copy_Right3 = "Ported to OS/2 by Kai Uwe Rommel 1990\n\n";
++ 
+  char		**dolv;		/* Parameter array			*/
+  int		dolc;		/* Number of entries in parameter array	*/
+  int		exstat;		/* Exit status				*/
+***************
+*** 83,89 ****
+  int		*failpt;	/* Current fail point jump address	*/
+  int		*errpt;		/* Current error point jump address	*/
+  				/* Swap mode				*/
+- int		Swap_Mode = SWAP_EXPAND | SWAP_DISK;
+  Break_C		*Break_List;	/* Break list for FOR/WHILE		*/
+  Break_C		*Return_List;	/* Return list for RETURN		*/
+  Break_C		*SShell_List;	/* SubShell list for EXIT		*/
+--- 85,90 ----
+***************
+*** 161,167 ****
+  {
+      char	buf[100];
+  
+!     sprintf (buf, Copy_Right1, __DATE__, _osmajor, _osminor);
+      write (fp, buf, strlen (buf));
+      write (fp, Copy_Right2, strlen (Copy_Right2));
+  }
+--- 162,169 ----
+  {
+      char	buf[100];
+  
+!     sprintf (buf, Copy_Right1, __DATE__, _osmajor / 10, _osminor);
+      write (fp, buf, strlen (buf));
+      write (fp, Copy_Right2, strlen (Copy_Right2));
++     write (fp, Copy_Right3, strlen (Copy_Right3));
+  }
+diff -cbBw sh-dos/sh7.c sh-os2/sh7.c
+*** sh-dos/sh7.c	Thu Jul 05 19:50:32 1990
+--- sh-os2/sh7.c	Sat Aug 04 14:58:16 1990
+***************
+*** 78,84 ****
+  #include <sys/stat.h>
+  #include <stdio.h>
+  #include <process.h>
+- #include <dos.h>
+  #include <signal.h>
+  #include <errno.h>
+  #include <setjmp.h>
+--- 78,83 ----
+***************
+*** 91,96 ****
+--- 90,99 ----
+  #include <stdarg.h>
+  #include "sh.h"
+  
++ #define INCL_NOPM
++ #define INCL_DOS
++ #include <os2.h>
++ 
+  #define	SECS		60L
+  #define	MINS		3600L
+  #define IS_OCTAL(a)	(((a) >= '0') && ((a) <= '7'))
+***************
+*** 101,107 ****
+  #define FILE_READABLE	1
+  #define FILE_WRITABLE	2
+  #define FILE_REGULAR	3
+! #define FILE_DIRECTORY	4
+  #define FILE_NONZERO	5
+  #define FILE_TERMINAL	6
+  #define STRING_ZERO	7
+--- 104,110 ----
+  #define FILE_READABLE	1
+  #define FILE_WRITABLE	2
+  #define FILE_REGULAR	3
+! #define _FILE_DIRECTORY	4
+  #define FILE_NONZERO	5
+  #define FILE_TERMINAL	6
+  #define STRING_ZERO	7
+***************
+*** 143,149 ****
+      {"-w",	FILE_WRITABLE,		UNARY_OP},
+      {"-x",	FILE_EXECUTABLE,	UNARY_OP},
+      {"-f",	FILE_REGULAR,		UNARY_OP},
+!     {"-d",	FILE_DIRECTORY,		UNARY_OP},
+      {"-s",	FILE_NONZERO,		UNARY_OP},
+      {"-t",	FILE_TERMINAL,		UNARY_OP},
+      {"-z",	STRING_ZERO,		UNARY_OP},
+--- 146,152 ----
+      {"-w",	FILE_WRITABLE,		UNARY_OP},
+      {"-x",	FILE_EXECUTABLE,	UNARY_OP},
+      {"-f",	FILE_REGULAR,		UNARY_OP},
+!     {"-d",	_FILE_DIRECTORY,	UNARY_OP},
+      {"-s",	FILE_NONZERO,		UNARY_OP},
+      {"-t",	FILE_TERMINAL,		UNARY_OP},
+      {"-z",	STRING_ZERO,		UNARY_OP},
+***************
+*** 197,203 ****
+  static int		doecho (C_Op *);
+  static int		dogetopt (C_Op *);
+  static int		dopwd (C_Op *);
+- static int		doswap (C_Op *);
+  static int		dounset (C_Op *);
+  static int		dotype (C_Op *);
+  static int		dotest (C_Op *);
+--- 200,205 ----
+***************
+*** 217,222 ****
+--- 219,226 ----
+  static int		doreadonly (C_Op *);
+  static int		doset (C_Op *);
+  static int		dohistory (C_Op *);
++ extern int              dojobs(C_Op *);
++ 
+  static void		setsig (int, int (*)());
+  static int		rdexp (char **, int, char *);
+  
+***************
+*** 463,578 ****
+      return 0;
+  }
+  
+- static char	*swap_device[] = {"disk", "extend", "expand"};
+- 
+- /*
+-  * Modify swapping information: swap options
+-  */
+- 
+- static int	doswap (t)
+- register C_Op	*t;
+- {
+-     register int	n = 1;
+-     char		*cp;
+- 
+- /* Display current values ? */
+- 
+-     if (t->words[1] == (char *)NULL)
+-     {
+- 	if (Swap_Mode == SWAP_OFF)
+- 	    v1a_puts ("Swapping disabled");
+- 
+- 	else
+- 	{
+- 	    register int	j;
+- 
+- 	    v1_puts ("Swap devices: ");
+- 
+- 	    for (j = 0, n = 1; j < 3; ++j, n <<= 1)
+- 	    {
+- 		if (Swap_Mode & n)
+- 		{
+- 		    v1printf ("%s ", swap_device[j]);
+- 
+- 		    if (n == SWAP_EXTEND)
+- 			v1printf ("(0x%.6lx) ", SW_EMstart);
+- 		}
+- 	    }
+- 
+- 	    v1_putc (NL);
+- 	}
+- 
+- 	return 0;
+-     }
+- 
+- /* Set up new values */
+- 
+-     Swap_Mode = SWAP_OFF;
+-     Clear_Swap_File ();
+- 
+-     while ((cp = t->words[n++]) != (char *)NULL)
+-     {
+- 	if (strcmp (cp, "off") == 0)
+- 	    Swap_Mode = SWAP_OFF;
+- 
+- 	else if (strcmp (cp, "on") == 0)
+- 	    Swap_Mode = SWAP_DISK | SWAP_EXPAND | SWAP_EXTEND;
+- 
+- /* Scan for valid arguments */
+- 
+- 	else
+- 	{
+- 	    register int	j, k;
+- 
+- 	    for (j = 0, k = 1; j < 3; ++j, k <<= 1)
+- 	    {
+- 		if (strcmp (cp, swap_device[j]) == 0)
+- 		{
+- 		    Swap_Mode |= k;
+- 
+- /* If extended memory, they can specify the start address as a hex number */
+- 
+- 		    if (k == SWAP_EXTEND)
+- 		    {
+- 			char	*sp;
+- 			long	start;
+- 
+- /* Check for not changed */
+- 
+- 			if ((sp = t->words[n]) == (char *)NULL)
+- 			    break;
+- 
+- /* Convert hex number */
+- 
+- 			start = strtol (sp, &sp, 16);
+- 
+- /* If not completely a hex number, ignore */
+- 
+- 			if (*sp)
+- 			    break;
+- 
+- /* Set used and saved new value */
+- 
+- 			SW_EMstart = start;
+- 			++n;
+- 
+- 			if ((SW_EMstart < 0x100000L) ||
+- 			    (SW_EMstart > 0xf00000L))
+- 			    SW_EMstart = 0x100000L;
+- 
+- 			v1printf ("Extend memory start set to 0x%.6lx\n",
+- 				  SW_EMstart);
+- 		    }
+- 
+- 		    break;
+- 		}
+- 	    }
+- 	}
+-     }
+- 
+-     return 0;
+- }
+- 
+  /*
+   * Output the current path: pwd
+   */
+--- 467,472 ----
+***************
+*** 846,852 ****
+  	case FILE_REGULAR:
+  	    return stat (*test_alist, &s) == 0 && S_ISREG(s.st_mode);
+  
+! 	case FILE_DIRECTORY:
+  	    return stat (*test_alist, &s) == 0 && S_ISDIR(s.st_mode);
+  
+  	case FILE_NONZERO:
+--- 740,746 ----
+  	case FILE_REGULAR:
+  	    return stat (*test_alist, &s) == 0 && S_ISREG(s.st_mode);
+  
+! 	case _FILE_DIRECTORY:
+  	    return stat (*test_alist, &s) == 0 && S_ISDIR(s.st_mode);
+  
+  	case FILE_NONZERO:
+***************
+*** 948,957 ****
+  {
+      unsigned int	cdrive;
+      unsigned int	ndrive = tolower (**t->words) - 'a' + 1;
+  
+!     _dos_setdrive (ndrive, &cdrive);
+      Getcwd ();
+!     _dos_getdrive (&cdrive);
+      return (ndrive == cdrive) ? 0 : 1;
+  }
+  
+--- 842,852 ----
+  {
+      unsigned int	cdrive;
+      unsigned int	ndrive = tolower (**t->words) - 'a' + 1;
++     ULONG l_map;
+  
+!     DosSelectDisk(ndrive);
+      Getcwd ();
+!     DosQCurDisk((PUSHORT) &cdrive, &l_map);
+      return (ndrive == cdrive) ? 0 : 1;
+  }
+  
+***************
+*** 969,974 ****
+--- 864,870 ----
+      int			first = 0;
+      unsigned int	dummy;
+      unsigned int	cdrive;
++     ULONG l_map;
+  
+  /* If restricted shell - illegal */
+  
+***************
+*** 992,998 ****
+  
+  /* Save the current drive */
+  
+!     _dos_getdrive (&cdrive);
+  
+  /* Scan for the directory.  If there is not a / or : at start, use the
+   * CDPATH variable
+--- 888,894 ----
+  
+  /* Save the current drive */
+  
+!     DosQCurDisk((PUSHORT) &cdrive, &l_map);
+  
+  /* Scan for the directory.  If there is not a / or : at start, use the
+   * CDPATH variable
+***************
+*** 1011,1017 ****
+  
+  	if (*(nd + 1) == ':')
+  	{
+! 	    _dos_setdrive (tolower (*nd) - 'a' + 1, &dummy);
+  	    nd += 2;
+  	}
+  
+--- 907,913 ----
+  
+  	if (*(nd + 1) == ':')
+  	{
+! 	    DosSelectDisk(tolower (*nd) - 'a' + 1);
+  	    nd += 2;
+  	}
+  
+***************
+*** 1038,1044 ****
+  
+  /* Restore our original drive and restore directory info */
+  
+!     _dos_setdrive (cdrive, &dummy);
+      Getcwd ();
+  
+      print_error ("%s: bad directory\n", p);
+--- 934,940 ----
+  
+  /* Restore our original drive and restore directory info */
+  
+!     DosSelectDisk(cdrive);
+      Getcwd ();
+  
+      print_error ("%s: bad directory\n", p);
+***************
+*** 1756,1766 ****
+  #endif
+  
+  /*
+!  * Type fucntion: For each name, indicate how it would be interpreted
+   */
+  
+  static char	*type_ext[] = {
+!     "", ".exe", ".com", ".sh", ".bat"
+  };
+  
+  static int	dotype (t)
+--- 1652,1662 ----
+  #endif
+  
+  /*
+!  * Type function: For each name, indicate how it would be interpreted
+   */
+  
+  static char	*type_ext[] = {
+!     "", ".exe", ".com", ".sh", BATCHEXT
+  };
+  
+  static int	dotype (t)
+***************
+*** 1776,1781 ****
+--- 1672,1678 ----
+      bool		found;			/* Found flag		*/
+      char		*l_path;
+      Fun_Ops		*fops;
++     char                *mp;
+  
+  /* Get some memory for the buffer */
+  
+***************
+*** 1789,1794 ****
+--- 1686,1704 ----
+  
+      while ((cp = t->words[n++]) != (char *)NULL)
+      {
++ 	if ( inbuilt (cp) )
++         {
++ 	    v1_puts (cp);
++ 	    v1a_puts (" is a shell internal command");
++ 	    continue;
++         }
++ 
++         if ( cmd_internal(cp) )
++         {
++ 	    v1_puts (cp);
++ 	    v1a_puts (" is a CMD.EXE internal command");
++ 	    continue;
++         }
+  
+  /* Check for a function */
+  
+***************
+*** 1841,1849 ****
+  
+  		    else if ((stricmp (xp, ".exe") != 0) &&
+  			     (stricmp (xp, ".com") != 0) &&
+! 			     (stricmp (xp, ".bat") != 0))
+  			continue;
+  
+  		    print_error ("%s is %s\n", cp, l_path);
+  		    found = TRUE;
+  		}
+--- 1751,1765 ----
+  
+  		    else if ((stricmp (xp, ".exe") != 0) &&
+  			     (stricmp (xp, ".com") != 0) &&
+! 			     (stricmp (xp, BATCHEXT) != 0))
+  			continue;
+  
++                     strlwr(l_path);
++ 
++                     for ( mp = l_path; *mp; mp++ )
++                       if ( *mp == '\\' )
++                         *mp = '/';
++ 
+  		    print_error ("%s is %s\n", cp, l_path);
+  		    found = TRUE;
+  		}
+***************
+*** 1875,1880 ****
+--- 1791,1797 ----
+  #ifndef NO_HISTORY
+  	"history",	dohistory,
+  #endif
++         "jobs",         dojobs,
+  	"msdos",	domsdos,
+  	"pwd",		dopwd,
+  	"read",		doread,
+***************
+*** 1882,1888 ****
+  	"return",	doreturn,
+  	"set",		doset,
+  	"shift",	doshift,
+- 	"swap",		doswap,
+  	"test",		dotest,
+  	"trap",		dotrap,
+  	"type",		dotype,
+--- 1799,1804 ----
+***************
+*** 1911,1916 ****
+--- 1827,1861 ----
+      }
+  
+      return (int (*)())NULL;
++ }
++ 
++ /* recognize CMD.EXE internal commands */
++ 
++ char *cmd_tab[] =
++ {
++   "chcp", "cls", "copy",
++   "date", "del", "detach", "dir",
++   "erase",
++   "md", "mkdir", "move",
++   "ren", "rename", "rd", "rmdir",
++   "start",
++   "time",
++   NULL
++ };
++ 
++ #define cmds (sizeof(cmd_tab) / sizeof(char *) - 1)
++ 
++ char *cmd_internal(char *s)
++ {
++     int cnt;
++ 
++     for ( cnt = 0; cnt < cmds; cnt++ )
++     {
++ 	if (stricmp (cmd_tab[cnt], s) == 0)
++ 	    return cmd_tab[cnt];
++     }
++ 
++     return NULL;
+  }
+  
+  /* Write to stdout functions - printf, fputs, fputc, and a special */
+diff -cbBw sh-dos/sh8.c sh-os2/sh8.c
+*** sh-dos/sh8.c	Thu Jul 05 19:50:34 1990
+--- sh-os2/sh8.c	Sat Aug 04 17:44:18 1990
+***************
+*** 58,63 ****
+--- 58,64 ----
+  #include <errno.h>
+  #include <setjmp.h>
+  #include <stdlib.h>
++ #include <stdio.h>
+  #include <fcntl.h>
+  #include <io.h>
+  #include <stdarg.h>
+***************
+*** 594,600 ****
+  /* Try the file name and then with a .sh appended */
+  
+      if ((i = Check_Script (strcpy (local_path, path), params, nargs)) < 0)
+! 	i = Check_Script (strcat (local_path, ".sh"), params, nargs);
+  
+      DELETE (local_path);
+      return i;
+--- 595,602 ----
+  /* Try the file name and then with a .sh appended */
+  
+      if ((i = Check_Script (strcpy (local_path, path), params, nargs)) < 0)
+!       if ((i = Check_Script (strcat (local_path, ".sh"), params, nargs)) == 0)
+!         strcpy(path, local_path);
+  
+      DELETE (local_path);
+      return i;
+diff -cbBw sh-dos/sh9.c sh-os2/sh9.c
+*** sh-dos/sh9.c	Thu Jul 05 19:50:34 1990
+--- sh-os2/sh9.c	Sat Aug 04 19:02:28 1990
+***************
+*** 74,84 ****
+  #include <errno.h>
+  #include <setjmp.h>
+  #include <limits.h>
+- #include <dos.h>
+  #include <unistd.h>
+! #include <dirent.h>
+  #include "sh.h"
+  
+  /* Keyboard functions */
+  
+  #define KF_LENGTH		(sizeof (KF_List) / sizeof (KF_List[0]))
+--- 74,87 ----
+  #include <errno.h>
+  #include <setjmp.h>
+  #include <limits.h>
+  #include <unistd.h>
+! #include <dir.h>
+  #include "sh.h"
+  
++ #define INCL_NOPM
++ #define INCL_VIO
++ #include <os2.h>
++ 
+  /* Keyboard functions */
+  
+  #define KF_LENGTH		(sizeof (KF_List) / sizeof (KF_List[0]))
+***************
+*** 99,107 ****
+  #define KF_DELETELEFT	0x0e		/* Delete left character	*/
+  #define KF_COMPLETE	0x0f		/* Complete file name		*/
+  #define KF_DIRECTORY	0x10		/* Complete directory function	*/
+! #define KF_END_FKEYS	0x11		/* End of function keys		*/
+! #define KF_RINGBELL	0x11		/* Ring bell			*/
+! #define KF_HALFHEIGTH	0x12		/* Half height cursor		*/
+  
+  /* Function Declarations */
+  
+--- 102,112 ----
+  #define KF_DELETELEFT	0x0e		/* Delete left character	*/
+  #define KF_COMPLETE	0x0f		/* Complete file name		*/
+  #define KF_DIRECTORY	0x10		/* Complete directory function	*/
+! #define KF_JOBS         0x11            /* Jobs list */
+! #define KF_END_FKEYS	0x12		/* End of function keys		*/
+! #define KF_RINGBELL	0x12		/* Ring bell			*/
+! #define KF_HALFHEIGTH	0x13		/* Half height cursor		*/
+! 
+  
+  /* Function Declarations */
+  
+***************
+*** 130,136 ****
+  static int	Max_Cols  = 80;		/* Max columns			*/
+  static int	Max_Lines = 25;		/* Max Lines			*/
+  #ifndef NO_HISTORY
+! static bool	insert_mode = FALSE;
+  static char	*c_buffer_pos;		/* Position in command line	*/
+  static char	*end_buffer;		/* End of command line		*/
+  static int	m_line = 0;		/* Max write line number	*/
+--- 135,141 ----
+  static int	Max_Cols  = 80;		/* Max columns			*/
+  static int	Max_Lines = 25;		/* Max Lines			*/
+  #ifndef NO_HISTORY
+! static bool	insert_mode = TRUE;
+  static char	*c_buffer_pos;		/* Position in command line	*/
+  static char	*end_buffer;		/* End of command line		*/
+  static int	m_line = 0;		/* Max write line number	*/
+***************
+*** 162,180 ****
+      { "WordRight",	0,	't',	KF_WORDRIGHT },
+      { "WordLeft",	0,	's',	KF_WORDLEFT },
+      { "Start",		0,	'G',	KF_START },
+!     { "Clear",		0,	'v',	KF_CLEAR },
+      { "Flush",		0,	'u',	KF_FLUSH },
+      { "End",		0,	'O',	KF_END },
+      { "Insert",		0,	'R',	KF_INSERT },
+      { "DeleteRight",	0,	'S',	KF_DELETERIGHT },
+      { "DeleteLeft",	0x08,	0,	KF_DELETELEFT },
+!     { "Complete",	0,	'w',	KF_COMPLETE },
+      { "Directory",	0,	0x0f,	KF_DIRECTORY },
+  
+  /* End of function keys - flags */
+  
+      { "Bell",		1,	0,	KF_RINGBELL },
+!     { "HalfHeight",	0,	0,	KF_HALFHEIGTH }
+  };
+  
+  /* Arrary of history Items */
+--- 167,186 ----
+      { "WordRight",	0,	't',	KF_WORDRIGHT },
+      { "WordLeft",	0,	's',	KF_WORDLEFT },
+      { "Start",		0,	'G',	KF_START },
+!     { "Clear",		0x1b,	0,	KF_CLEAR },
+      { "Flush",		0,	'u',	KF_FLUSH },
+      { "End",		0,	'O',	KF_END },
+      { "Insert",		0,	'R',	KF_INSERT },
+      { "DeleteRight",	0,	'S',	KF_DELETERIGHT },
+      { "DeleteLeft",	0x08,	0,	KF_DELETELEFT },
+!     { "Complete",	0x09,	0,	KF_COMPLETE },
+      { "Directory",	0,	0x0f,	KF_DIRECTORY },
++     { "Jobs",		0,	0x94,	KF_JOBS },
+  
+  /* End of function keys - flags */
+  
+      { "Bell",		1,	0,	KF_RINGBELL },
+!     { "HalfHeight",	1,	0,	KF_HALFHEIGTH }
+  };
+  
+  /* Arrary of history Items */
+***************
+*** 238,244 ****
+  
+      while (TRUE)
+      {
+! 	Init_Input (FALSE);			/* Initialise		*/
+  
+  	while (((a_key = (char)getch ()) != 0x1a) && (a_key != NL) &&
+  		(a_key != '\r'))
+--- 244,250 ----
+  
+      while (TRUE)
+      {
+! 	Init_Input (TRUE);			/* Initialise		*/
+  
+  	while (((a_key = (char)getch ()) != 0x1a) && (a_key != NL) &&
+  		(a_key != '\r'))
+***************
+*** 246,251 ****
+--- 252,260 ----
+  
+  /* If function key, get the fkey value */
+  
++             if ( a_key == 0xE0 )
++               a_key = 0;
++ 
+  	    if (!a_key)
+  		f_key = (char)getch ();
+  
+***************
+*** 482,487 ****
+--- 491,503 ----
+  
+     	    return TRUE;
+  
++         case KF_JOBS:
++ 	    v1_putc (NL);
++             dojobs(NULL);
++ 	    put_prompt (last_prompt);
++ 	    read_cursor_position ();
++             return TRUE;
++ 
+  	case KF_DIRECTORY:		/* File name directory		*/
+  	    fn_search = TRUE;
+  
+***************
+*** 521,540 ****
+  static void	set_cursor_shape (mode)
+  bool		mode;
+  {
+!     union REGS		r;
+  
+! /* Get the current cursor position to get the cursor lines */
+  
+!     r.h.ah = 0x03;
+!     int86 (0x10, &r, &r);
+! 
+! /* Reset the type */
+! 
+!     r.h.ah = 0x01;
+!     r.h.ch = (unsigned char)(!mode ? r.h.cl - 1
+! 				   : (KF_List[KF_HALFHEIGTH].akey
+! 					? (r.h.cl / 2) + 1 : 1));
+!     int86 (0x10, &r, &r);
+  }
+  #endif
+  
+--- 537,550 ----
+  static void	set_cursor_shape (mode)
+  bool		mode;
+  {
+!   VIOCURSORINFO vioci;
+  
+!   vioci.yStart = mode ? (KF_List[KF_HALFHEIGTH].akey ? -50 : 0) : -90;
+!   vioci.cEnd = -100;
+!   vioci.cx = 0;
+!   vioci.attr = 0;
+  
+!   VioSetCurType(&vioci, 0);
+  }
+  #endif
+  
+***************
+*** 542,553 ****
+  
+  static void	read_cursor_position ()
+  {
+!     union REGS	r;
+  
+!     r.h.ah = 0x03;				/* Read cursor position	*/
+!     r.h.bh = 0;					/* Page zero		*/
+!     int86 (0x10, &r, &r);
+!     s_cursor = (r.h.dh * Max_Cols) + r.h.dl;
+  }
+  
+  /* Re-position the cursor */
+--- 552,561 ----
+  
+  static void	read_cursor_position ()
+  {
+!     USHORT usRow, usColumn;
+  
+!     VioGetCurPos(&usRow, &usColumn, 0);
+!     s_cursor = (usRow * Max_Cols) + usColumn;
+  }
+  
+  /* Re-position the cursor */
+***************
+*** 557,579 ****
+  int		new;
+  {
+      int		diff;
+!     union REGS	r;
+  
+!     r.h.ah = 0x02;				/* Set new position	*/
+!     r.h.bh = 0;					/* Page zero		*/
+!     r.h.dh = (unsigned char)(new / Max_Cols);
+!     r.h.dl = (unsigned char)(new % Max_Cols);
+  
+  /* Are we at the bottom of the page? */
+  
+!     if (r.h.dh >= (unsigned char)Max_Lines)
+      {
+! 	diff = r.h.dh + 1 - Max_Lines;
+! 	r.h.dh = (unsigned char)(Max_Lines - 1);
+  	s_cursor -= Max_Cols * diff;
+      }
+  
+!     int86 (0x10, &r, &r);
+  }
+  
+  /* Erase to end of line (avoid need for STUPID ansi.sys memory eater!) */
+--- 565,585 ----
+  int		new;
+  {
+      int diff;
+!     USHORT usRow, usColumn;
+  
+!     usRow    = (unsigned char)(new / Max_Cols);
+!     usColumn = (unsigned char)(new % Max_Cols);
+  
+  /* Are we at the bottom of the page? */
+  
+!     if (usRow >= (unsigned char)Max_Lines)
+      {
+! 	diff = usRow + 1 - Max_Lines;
+! 	usRow = (unsigned char)(Max_Lines - 1);
+  	s_cursor -= Max_Cols * diff;
+      }
+  
+!     VioSetCurPos(usRow, usColumn, 0);
+  }
+  
+  /* Erase to end of line (avoid need for STUPID ansi.sys memory eater!) */
+***************
+*** 580,611 ****
+  
+  static void	erase_to_end_of_line ()
+  {
+!     union REGS		r;
+!     unsigned char	backg;
+! 
+! /* Get the background attribute of the cursor */
+  
+!     r.h.ah = 0x08;
+!     r.h.bh = 0;
+!     int86 (0x10, &r, &r);
+!     backg = r.h.ah & 0x07;
+! 
+!     r.h.ah = 0x03;
+!     r.h.bh = 0;
+!     int86 (0x10, &r, &r);
+! 
+! /* Check that we use the correct m_line */
+! 
+!     if (m_line < r.h.dh)
+! 	m_line = r.h.dh;
+! 
+!     if ((r.x.cx = Max_Cols - r.h.dl + (m_line - r.h.dh) * Max_Cols) > 0)
+!     {
+! 	r.x.ax = 0x0a20;
+! 	r.x.bx = backg;
+! 	int86 (0x10, &r, &r);
+      }
+- }
+  
+  /* Generate the new cursor position */
+  
+--- 586,596 ----
+  
+  static void	erase_to_end_of_line ()
+  {
+!     USHORT usRow, usColumn;
+  
+!     VioGetCurPos(&usRow, &usColumn, 0);
+!     VioWrtNChar(" ", Max_Cols - usColumn, usRow, usColumn, 0);
+  }
+  
+  /* Generate the new cursor position */
+  
+***************
+*** 1069,1075 ****
+      int			fn_len, pre_len, i;
+      DIR			*dn;
+      char		d_name [NAME_MAX + 1];
+!     struct dirent	*d_ce;
+      int			found_cnt = 0;
+      int			max_per_line;
+      static char		*ms_drive = "a:/";
+--- 1054,1060 ----
+      int			fn_len, pre_len, i;
+      DIR			*dn;
+      char		d_name [NAME_MAX + 1];
+!     struct direct	*d_ce;
+      int			found_cnt = 0;
+      int			max_per_line;
+      static char		*ms_drive = "a:/";
+***************
+*** 1176,1182 ****
+  
+  /* Scan the directory */
+  
+!     while ((d_ce = readdir (dn)) != (struct dirent *)NULL)
+      {
+  	if (strnicmp (d_ce->d_name, fn_mstart, fn_len) == 0)
+  	{
+--- 1161,1167 ----
+  
+  /* Scan the directory */
+  
+!     while ((d_ce = readdir (dn)) != (struct direct *)NULL)
+      {
+  	if (strnicmp (d_ce->d_name, fn_mstart, fn_len) == 0)
+  	{
+***************
+*** 1269,1274 ****
+--- 1254,1260 ----
+      c_buffer_pos = l_buffer;	/* Initialise			*/
+      end_buffer = l_buffer;
+      insert_mode = im;
++     set_cursor_shape (insert_mode);
+      M_length = -1;
+  
+  /* Reset max line length and get the number of columns */
+***************
+*** 1411,1426 ****
+  
+  void	In_Col_Zero ()
+  {
+!     union REGS		r;
+  
+      Get_Screen_Params ();
+      read_cursor_position ();
+  
+!     r.h.ah = 0x08;
+!     r.h.bh = 0x00;
+!     int86 (0x10, &r, &r);
+  
+!     if ((s_cursor % Max_Cols) || (r.h.al != ' '))
+  	v1_putc (NL);
+  }
+  
+--- 1397,1413 ----
+  
+  void	In_Col_Zero ()
+  {
+!     CHAR str[1];
+!     USHORT cb = sizeof(str);
+!     USHORT usRow, usColumn;
+  
+      Get_Screen_Params ();
+      read_cursor_position ();
+  
+!     VioGetCurPos(&usRow, &usColumn, 0);
+!     VioReadCharStr(str, &cb, usRow, usColumn, 0);
+  
+!     if ((s_cursor % Max_Cols) || (str[0] != ' '))
+  	v1_putc (NL);
+  }
+  
+***************
+*** 1428,1453 ****
+  
+  static void	Get_Screen_Params ()
+  {
+!     union REGS		r;
+! 
+!     Max_Cols = *(int *)(0x0040004aL);
+!     Max_Lines = 25;
+  
+! /* Is this an EGA?  This test was found in NANSI.SYS */
+! 
+!     r.h.ah = 0x12;
+!     r.x.bx = 0xff10;
+!     int86 (0x10, &r, &r);
+! 
+!     if (r.x.bx & 0xfefc)
+! 	return;
+! 
+! /* Else read the number of rows */
+  
+!     r.x.ax = 0x1130;
+!     r.h.bh = 0;
+!     int86 (0x10, &r, &r);
+!     Max_Lines = r.h.dl + 1;
+  }
+  
+  /* Ring Bell ? */
+--- 1415,1427 ----
+  
+  static void	Get_Screen_Params ()
+  {
+!     VIOMODEINFO viomi;
+  
+!     viomi.cb = sizeof(viomi);
+!     VioGetMode(&viomi, 0);
+  
+!     Max_Cols  = viomi.col;
+!     Max_Lines = viomi.row;
+  }
+  
+  /* Ring Bell ? */
+diff -cbBw sh-dos/sh10.c sh-os2/sh10.c
+*** sh-dos/sh10.c	Thu Jul 05 19:50:22 1990
+--- sh-os2/sh10.c	Fri Aug 03 20:26:34 1990
+***************
+*** 30,36 ****
+  #include <sys/stat.h>
+  #include <stdio.h>
+  #include <process.h>
+- #include <dos.h>
+  #include <signal.h>
+  #include <errno.h>
+  #include <setjmp.h>
+--- 30,35 ----
+diff -cbBw sh-dos/stdargv.c sh-os2/stdargv.c
+*** sh-dos/stdargv.c	Sat Feb 17 00:15:50 1990
+--- sh-os2/stdargv.c	Sat Aug 04 16:23:50 1990
+***************
+*** 32,51 ****
+  #include <stdio.h>			/* Standard I/O delarations         */
+  #include <stdlib.h>			/* Standard library functions       */
+  #include <errno.h>			/* Error number declarations        */
+- #include <dos.h>			/* DOS functions declarations       */
+- #include <bios.h>			/* BIOS functions declarations      */
+  #include <ctype.h>			/* Character type declarations      */
+  #include <string.h>			/* String library functions         */
+  #include <limits.h>			/* String library functions         */
+  #include <fcntl.h>			/* File Control Declarations        */
+  #include <io.h>				/* Input/Output Declarations        */
+! #include <dirent.h>			/* Direction I/O functions	    */
+  
+  /*
+   *  DATA DEFINITIONS:
+   */
+  
+! #define MAX_LINE	160		/* Max line length		*/
+  #define S_ENTRY		sizeof (char *)
+  
+  /*
+--- 32,54 ----
+  #include <stdio.h>			/* Standard I/O delarations         */
+  #include <stdlib.h>			/* Standard library functions       */
+  #include <errno.h>			/* Error number declarations        */
+  #include <ctype.h>			/* Character type declarations      */
+  #include <string.h>			/* String library functions         */
+  #include <limits.h>			/* String library functions         */
+  #include <fcntl.h>			/* File Control Declarations        */
+  #include <io.h>				/* Input/Output Declarations        */
+! #include <changes.h>
+! #include <dir.h>			/* Direction I/O functions	    */
+  
++ #define INCL_NOPM
++ #define INCL_DOS
++ #include <os2.h>
++ 
+  /*
+   *  DATA DEFINITIONS:
+   */
+  
+! #define MAX_LINE	256		/* Max line length		*/
+  #define S_ENTRY		sizeof (char *)
+  
+  /*
+***************
+*** 71,76 ****
+--- 74,82 ----
+  extern char	**__argv; 		/* Current argument address	*/
+  extern int	__argc; 		/* Current argument count	*/
+  
++ extern unsigned _aenvseg;
++ extern unsigned _acmdln;
++ 
+  /*
+   *  MODULE ABSTRACT: _setargv
+   *
+***************
+*** 80,87 ****
+  void	_setargv ()
+  {
+  					/* Set up pointer to command line */
+!     char far		*argvp = (char far *)((((long)_psp) << 16) + 0x081L);
+!     unsigned int	envs = *(int far *)((((long)_psp) << 16) + 0x02cL);
+      char far		*s; 		/* Temporary string pointer    	*/
+  #ifndef M_I86LM
+      char		buf[MAX_LINE];	/* Temporary space		*/
+--- 86,92 ----
+  void	_setargv ()
+  {
+  					/* Set up pointer to command line */
+!     char far		*argvp = MAKEP(_aenvseg, _acmdln);
+      char far		*s; 		/* Temporary string pointer    	*/
+  #ifndef M_I86LM
+      char		buf[MAX_LINE];	/* Temporary space		*/
+***************
+*** 110,126 ****
+  /* In the case of DOS 3+, we look in the environment space */
+  
+      else
+!     {
+! 	s = (char far *)(((long)envs) << 16);
+! 
+! 	while (*s)
+! 	{
+! 	    while (*(s++) != 0);
+! 	}
+  
+- 	s += 3;
+-     }
+- 
+      _pgmptr = s;
+  
+  #ifndef M_I86LM
+--- 115,122 ----
+  /* In the case of DOS 3+, we look in the environment space */
+  
+      else
+! 	for ( s = argvp; *(s - 1); s-- );
+  
+      _pgmptr = s;
+  
+  #ifndef M_I86LM
+***************
+*** 234,240 ****
+      char		*name;		/* Match string			*/
+      char		*p, *p1;
+      DIR			*dp;
+!     struct dirent	*c_de;
+      unsigned int	c_drive;	/* Current drive		*/
+      unsigned int	m_drive;	/* Max drive			*/
+      unsigned int	s_drive;	/* Selected drive		*/
+--- 230,236 ----
+      char		*name;		/* Match string			*/
+      char		*p, *p1;
+      DIR			*dp;
+!     struct direct	*c_de;
+      unsigned int	c_drive;	/* Current drive		*/
+      unsigned int	m_drive;	/* Max drive			*/
+      unsigned int	s_drive;	/* Selected drive		*/
+***************
+*** 241,246 ****
+--- 237,244 ----
+      unsigned int	x_drive, y_drive;	/* Dummies		*/
+      char		*multi;		/* Multi-drive flag		*/
+      char		t_drive[2];
++     ULONG               l_map;
++     int                 cnt;
+  
+  /* Convert file name to lower case */
+  
+***************
+*** 250,283 ****
+  
+      if ((multi = _ex_multi_drive (prefix)) != (char *)NULL)
+      {
+! 	_dos_getdrive (&c_drive);	/* Get number of drives		*/
+! 	_dos_setdrive (c_drive, &m_drive);
+  	t_drive[1] = 0;
+  
+! 	for (s_drive = 1; s_drive <= m_drive; ++s_drive)
+  	{
+! 	    _dos_setdrive (s_drive, &x_drive);
+! 	    _dos_getdrive (&y_drive);
+! 	    _dos_setdrive (c_drive, &x_drive);
+! 
+! /* Check to see if the second diskette drive is really there */
+! 
+! 	    if (((_bios_equiplist () & 0x00c0) == 0x0000) && (s_drive == 2))
+! 		continue;
+! 
+! /* If the drive exists and is in our list - process it */
+! 
+  	    *multi = 0;
+- 	    *t_drive = (char)(s_drive + 'a' - 1);
+  
+! 	    if ((y_drive == s_drive) && pnmatch (t_drive, prefix, 0))
+  	    {
+  		*multi = ':';
+! 		*fn = *t_drive;
+  		strcpy (fn + 1, multi);
+  		f_count += ex_pfield (fn, postfix);
+  	    }
+! 
+  	    *multi = ':';
+  	}
+  
+--- 248,270 ----
+  
+      if ((multi = _ex_multi_drive (prefix)) != (char *)NULL)
+      {
+!         DosQCurDisk((PUSHORT) &c_drive, &l_map);
+  	t_drive[1] = 0;
+  
+!         for ( cnt = 1; cnt <= 26; cnt++, l_map >>= 1 )
+!           if ( l_map & 1L )
+  	  {
+! 	      t_drive[0] = (char)(cnt + 'a' - 1);
+                *multi = 0;
+  
+! 	      if (pnmatch (t_drive, prefix, 0))
+  	      {
+                  *multi = ':';
+! 	  	fn[0] = t_drive[0];
+  	  	strcpy (fn + 1, multi);
+  	  	f_count += ex_pfield (fn, postfix);
+  	      }
+!               else
+                  *multi = ':';
+  	  }
+  
+***************
+*** 342,348 ****
+  
+  /* Are there any matches */
+  
+!     while ((c_de = readdir (dp)) != (struct dirent *)NULL)
+      {
+  	if ((*c_de->d_name == '.') && (*name != '.'))
+  	    continue;
+--- 329,335 ----
+  
+  /* Are there any matches */
+  
+!     while ((c_de = readdir (dp)) != (struct direct *)NULL)
+      {
+  	if ((*c_de->d_name == '.') && (*name != '.'))
+  	    continue;
+diff -cbBw sh-dos/unistd.h sh-os2/unistd.h
+*** sh-dos/unistd.h	Sat Feb 17 00:15:34 1990
+--- sh-os2/unistd.h	Mon May 21 20:26:10 1990
+***************
+*** 4,10 ****
+  /*  unistd.h  */
+  
+  #include <sys/types.h>
+! #include <sys/proto.h>
+  
+  /* Definition for NULL pointer */
+  
+--- 4,11 ----
+  /*  unistd.h  */
+  
+  #include <sys/types.h>
+! #include <proto.h>
+! #include <changes.h>
+  
+  /* Definition for NULL pointer */
+  

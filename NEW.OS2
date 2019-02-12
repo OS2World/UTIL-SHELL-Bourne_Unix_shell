@@ -1,0 +1,42 @@
+This is the OS/2 version of MS-SH 1.6.2. It was ported and tested using
+OS/2 1.2 but may run under OS/2 1.1 (not tested!).
+
+
+Changes to DOS version:
+
+- background processes and report of their results by sh
+- $! variable with pid of last created background process
+- "jobs" command and key
+- increased expanded command line length
+- real pipes, except for `command` substitiution
+- CMD.EXE internal commands recognized
+- "type" command extended
+
+- #! in shell scripts fixed
+- execution of (command-list) fixed
+- break handling fixed
+
+- several defaults changed
+
+- the enhanced stdargv.c command line expander was modified but does not
+  work and is not needed inside sh, it may be useful only on invokation.
+
+
+When distributing only the diffs to the DOS version, please 
+include all of the following files:
+
+new.os2       (this file)
+patches.os2   (context diffs)
+
+changes.h     (new source files)
+dir.h
+dir_os2.c
+jobs.c
+sh.cs
+sh.def
+
+
+The OS/2 port was made by:
+
+Kai Uwe Rommel
+rommel@lan.informatik.tu-muenchen.dbp.de

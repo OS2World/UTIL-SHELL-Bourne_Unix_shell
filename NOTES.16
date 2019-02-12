@@ -1,0 +1,98 @@
+Version 1.6.2 Release Notes:
+
+Note: Release 1.6.1 did occur to comp.ibm.pc.binaries.  However, the
+transmission was corrupt and by the time I was notified (the moderator having
+been in hospital), release 1.6.2 was ready.  So the source patches for
+1.6.1 where not released.
+
+The following problems have been fixed in 1.6.2 (including 1.6).
+
+   1.   Traps did now work correctly (as far as possible for DOS) la System
+	V.3
+   2.   File descriptor duplication closed standard input.
+   3.   !! has been implemented to return the previous command in the history
+	file
+   4.   erase_to_end_of_line has been improved/fixed
+   5.   The processing of . filename has been fixed so that the script is
+	now executed immediately.  This is the area most likely to contain
+	bugs.
+   6.   History does not double prompt
+   7.	Bugs in the 'here' document code delete backslashes and prevented
+	`command` in a here document from working.
+   8.   Interrupting a pipeline could result in std??? remaining redirected
+   9.   exec >filename did not work
+  10.   Some temporary files were not deleted.
+  11.   The swapper failed to check for disk full errors
+  12.   The full path name is provided to the DOS spawn interrupt so that
+	the PICNIX utilities now work.
+  13.   Certain areas of code are now protected against interruption which
+	would cause hanging.
+  14.	The original directory is restored on exit.
+  15.	A couple of missing setarea having been added to stop hangs
+  16.	The input buffer is correctly initialised and nulls are added so
+	that the correct command is saved when an interrupt occurs.
+  17.	An error in the reloading of buffers from files has been fixed.
+  18.	The directory routines have been modified to correctly handle
+	all valid Unix format directory names (ie a Unix directory name
+	can end in /.  However, DOS does not think this is a directory).
+
+The following enhancements have been made:
+
+   1.   /dev/tty and /dev/null are mapped to /dev/con and /dev/nul internally
+   2.   <up arrow> returns the previous history command
+   3.   <page up> will now search for the previous history entry matching
+	the entered string
+   4.   The shell determines the number of columns on the screen from the
+	BIOS
+   5.   Shell scripts are detected in a new manner.  For a file to be a
+	shell script, it must contain no characters with values in the
+	range 0 to 7 in the first 512 bytes.
+   6.   #! <command> <arguments> processing on the first line of script files
+	has been implemented a la System V.4
+   7.   XMS drivers are now supported
+   8.   Some static buffers are now 'malloced' instead and some length
+	checks have been added
+   9.   Insert command selects a full or halfheight block cursor
+   10.  .bat files are processed by the shell specified by the variable
+	COMSPEC.
+   11.  UNIX format PATH variables are converted MSDOS format
+   12.  The shell attempts to find the number of lines on the screen from
+	the BIOS
+   13.  File name completion has been implemented
+   14.  Erase input buffer has been implemented
+   15.  A Configuration file (sh.ini) allows the user to configure the
+	editor keys
+   16.  Quoting of arugments with white space in them to MSDOS commands
+	has been added.
+   17.  Full internal Interrup 24 support is provided.
+   18.  The amount of data written to swap file by only dumping the
+	data and stack space after the first write.
+   19.	The ms_dio function have been enhanced to support raw and block
+	devices (well not really - just the stat and fstat functions).
+
+The following enhancements/bugs remain outstanding:
+
+    1.  The processing of the escape character (\) is not consistent with
+	the System V shell.  The MS-Shell always strips the first escape
+	character.  The System V shell only strips escape characters when
+	it detects a shell special character following (Release 1.7).
+
+	ie.  echo "\033[H" works under System V however echo "\\033[H" is
+	required in the MSDOS shell.
+
+    2.  8 Bit character are not supported.  This is tied in with the
+	processing of escape characters.  The shell uses the 8-bit to
+	mark escaped characters (Release 1.7).
+
+Thanks are due to
+
+    Greg Yachuk
+    Leo Vermeulen
+    Lee Fisher
+    John B Thiel
+    Harry McGavran
+    Bill Davidsen
+
+for their comments, fixes, tolerance etc in testing release 1.6
+
+Ian Stewartson.

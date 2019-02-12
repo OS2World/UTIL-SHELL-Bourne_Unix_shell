@@ -1,0 +1,20 @@
+Version 1.6 Release Notes:
+
+The following enhancements have been included:
+
+1)  Interrupt 24 processing is now handled correctly.  The shell does not
+    exit on Abort, it terminates the system call instead.
+
+2)  Some of the other interrupt processing has been cleaned up.
+
+3)  A bug in the Interrupt 23 detection code in sh0.asm has been fixed
+
+4)  The dependency on ANSI.SYS or NANSI.SYS has been removed (thanks to
+    Tom Horsley)
+
+5)  A missing source acknowledgement in sh7.c for the test command code
+    has been added.  The code came from Minix news group and was based
+    on the version written by Erik Baalbergen.
+
+6)  The executable version of this release has been send to the moderator
+    of comp.binaries.ibm.pc.

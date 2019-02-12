@@ -1,0 +1,3 @@
+LIB.EXE
+LINK.EXE
+sh.exe

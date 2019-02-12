@@ -1,0 +1,73 @@
+Add to fcntl.h the following 2 lines
+
+extern int _CDECL	open	(char *, int, ...);
+extern int _CDECL	creat	(char *, int);
+
+Add to limits.h the following 2 lines
+
+#define PATH_MAX	130		/* Maximum path length		*/
+#define NAME_MAX	14		/* Maximum file name length	*/
+
+Add to stdio.h the following 2 lines
+
+extern FILE * _CDECL	popen(char *, char *);
+extern int _CDECL	pclose(FILE *);
+
+Add to stdlib.h the following 8 lines
+
+extern int _CDECL		optind;
+extern int _CDECL		opterr;
+extern int _CDECL		optind;
+extern int _CDECL		optopt;
+extern int _CDECL		optvar;
+extern char * _CDECL		optarg;
+extern int _CDECL		getopt	(int, char **, char *);
+extern int _CDECL		pnmatch	(char *, char *, int);
+
+Add to sys/stat.h the following 10 lines
+
+/* Tests for file types */
+
+#define	S_IFBLK		0060000		/* block special		*/
+
+#define S_ISDIR(m)	((((m) & S_IFMT) == S_IFDIR))
+#define S_ISCHR(m)	((((m) & S_IFMT) == S_IFCHR))
+#define S_ISREG(m)	((((m) & S_IFMT) == S_IFREG))
+#define S_ISBLK(m)	((((m) & S_IFMT) == S_IFBLK))
+extern int CDECL	chmod	(char *, int);
+extern int CDECL	umask	(int);
+
+Add to sys/types.h the following 32 lines
+
+#ifndef _USHORT_T_DEFINED
+typedef unsigned short	ushort;
+#define _USHORT_T_DEFINED
+#endif
+
+#ifndef _MODE_T_DEFINED
+typedef unsigned short	mode_t;
+#define _MODE_T_DEFINED
+#endif
+
+#ifndef _PID_T_DEFINED
+typedef int		pid_t;
+#define _PID_T_DEFINED
+#endif
+
+#ifndef _GID_T_DEFINED
+typedef int		gid_t;
+#define _GID_T_DEFINED
+#endif
+
+#ifndef _UID_T_DEFINED
+typedef int		uid_t;
+#define _UID_T_DEFINED
+#endif
+
+#ifndef _BOOL_T_DEFINED
+typedef char		bool;	/* Boolean: 0 = false, 1 = true		*/
+#define FALSE	((bool)0)	/* Boolean 'false'			*/
+#define TRUE	((bool)1)	/* Boolean 'true'			*/
+#define _BOOL_T_DEFINED
+#endif
+
